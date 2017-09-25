@@ -1,0 +1,17 @@
+                                  |    _)            
+ __ \        __ `__ \   _` |  __| __ \  | __ \   _ \ 
+ |   |_____| |   |   | (   | (    | | | | |   |  __/ 
+ .__/       _|  _|  _|\__,_|\___|_| |_|_|_|  _|\___| 
+_|                                                   
+================================================================================
+to compile run the following
+  `gcc main.c -o main`
+
+p-machine offers two modes. regular mode, and interactive mode.
+afterwards, run the `main` executable using this command
+  ./main <yourfile>
+
+to run in interactive mode, use this command
+  ./main -i
+
+================================================================================
