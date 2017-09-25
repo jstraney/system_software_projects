@@ -1,6 +1,7 @@
 #ifndef IO
 #include <stdio.h>
 #endif
+
 //// Structs ////
 typedef struct Instruction {
   int op;
@@ -8,6 +9,15 @@ typedef struct Instruction {
   int l;
   int m;
 } Instruction;
+
+typedef struct ActivationRecord {
+  int parameters;
+  int locals;
+  int return_address;   
+  int static_link;   
+  int dynamic_link;   
+  int functional_value;   
+} ActivationRecord;
 
 // prompt for interactive mode
 int print_prompt();

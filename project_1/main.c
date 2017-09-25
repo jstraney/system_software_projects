@@ -7,7 +7,7 @@ ______      ___  ___  ___  _____  _   _ _____ _   _  _____
 \_|         \_|  |_/\_| |_/\____/\_| |_/\___/\_| \_/\____/ 
 
 */
-// Written by Jeffrey Straney and Frank __last_name__
+// Written by Jeffrey Straney and Frank Volk 
 // 09-22-2017
 // COP3402 assignment 1
 
@@ -20,7 +20,7 @@ ______      ___  ___  ___  _____  _   _ _____ _   _  _____
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef MAIN_FUNCTIONS
 #include "main.h"
-#define MAIN_FUNCTIONS 1
+#define MAIN_FUNCTIONS
 #endif
 
 //// Constants ////
@@ -93,6 +93,8 @@ int program_counter = PC;
 // create register file. initialize to 0
 int reg[REG_FILE_SIZE] = {0};
 
+// keeps track of lexigraphical levels
+int base_pointer[MAX_LEXI_LEVEL];
 
 int main (int argsc, char *argv[]) {
 
@@ -335,27 +337,55 @@ int execute_instruction (Instruction instruction) {
 
   if (op == OP_LIT) {
 
+    // load constant value into register 
     reg[r] = m;
 
   }
 
   else if (op == OP_RTN) {
 
+    // return from subroutine
+
   }
 
   else if (op == OP_LOD) {
 
+    // nope 
+
   }
+
   else if (op == OP_STO) {
+
+    // no idea
 
   }
 
   else if (op == OP_CAL) {
 
+    // fetch procedure at code index m 
+    Instruction subprocedure = code[m]; 
+    
+    // create new activation record 
+    program_counter = m;
+
   }
 
   else if (op == OP_INC) {
 
+    // allocate m locals
+    // functional value
+    stack[m - m] = 0;
+
+    // functional value
+    stack[m - m + 1] = 0;
+
+    // functional value
+    stack[m - m + 2] = 0;
+
+    // functional value
+    stack[m - m + 4] = 0;
+
+    // leaves m - 4 spaces for local procedure data
     stack_pointer += m;
 
   }
