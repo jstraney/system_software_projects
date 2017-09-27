@@ -38,9 +38,7 @@ ______      ___  ___  ___  _____  _   _ _____ _   _  _____
 // each level is initialized to -1, until a call is made to that lexigraphical
 // level. at that point, the index (lexical level) is set to the current
 // base pointer.
-int lex_level;
-int lex_levels[MAX_LEXI_LEVEL] {-1};
-lex_levels[0] = BP;
+int lex_levels[MAX_LEXI_LEVEL] = {-1};
 
 //// VM Modes ////
 ////////////////////////////////////////////////////////////////////////////////
@@ -924,7 +922,7 @@ int print_trace (int status) {
     char *str_op = opcodes[op];
 
     // print operation, as well as PC, BP, and SP 
-    printf("    %s  %2d  %2d  %2d      %2d  %2d  %2d  ",
+    printf("    %s  %2d  %2d  %2d      %2d  %2d  %2d  \n",
         str_op, r, l, m, program_counter, base_pointer, stack_pointer);
 
     // print out the stack values up to the current lexigraphical level
