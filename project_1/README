@@ -10,13 +10,25 @@ to compile run the following
   `gcc main.c -o main`
 
 p-machine offers two modes. regular mode, and interactive mode.
-afterwards, run the `main` executable using this command
+afterwards, run the `main` executable using this command. NOTE: without
+the -i flag, p-machine will not produce a diagnostic stack trace;.
   ./main <yourfile>
 
 to run in interactive mode, use this command
   ./main -i <yourfile>
 
 interactive mode allows you to print the stack out at each step and make use
-of other utilities. Interactive mode will ask you
+of other utilities. Interactive mode will ask you to perform one of 9 commands.
+in detail, these commands are:
+
+q - silently implode the p-machine 
+h - ask the machine for help
+s - step through a single fetch-execute cycle
+r - run through all instructions 
+i - check the status of the machine (ok, error, finished)
+c - print out decimal value machine code
+o - print out code with stringified opcodes
+t - run all instructions and print a stack trace
+p - print all registers (stack, register file, as well as pointers)
 
 ================================================================================
