@@ -9,6 +9,9 @@ ______      ___  ___  ___  _____  _   _ _____ _   _  _____
 to compile run the following
   `gcc main.c -o main`
 
+IMPORTANT: a lot of extras were implemented, 
+run with flag i (-i) and use the 't' command at prompt for trace.
+
 p-machine offers two modes. regular mode, and interactive mode.
 afterwards, run the `main` executable using this command. NOTE: without
 the -i flag, p-machine will not produce a diagnostic stack trace;.
@@ -29,6 +32,6 @@ i - check the status of the machine (ok, error, finished)
 c - print out decimal value machine code
 o - print out code with stringified opcodes
 t - run all instructions and print a stack trace
-p - print all registers (stack, register file, as well as pointers)
+p - print all registers (print entire stack and registers)
 
 ================================================================================

@@ -19,6 +19,7 @@ ______      ___  ___  ___  _____  _   _ _____ _   _  _____
 #endif
 
 //// Initial Pointer Values ////
+////////////////////////////////////////////////////////////////////////////////
 // these are just the starting values, actual stack pointer, base pointer etc.
 // are defined lower in code.
 #define SP 0 
@@ -30,15 +31,18 @@ ______      ___  ___  ___  _____  _   _ _____ _   _  _____
 ////////////////////////////////////////////////////////////////////////////////
 #define MAX_STACK_HEIGHT        2000
 #define MAX_CODE_LENGTH          500
-#define REG_FILE_SIZE             16 
+#define REG_FILE_SIZE              8 
 #define MAX_LEXI_LEVEL             3
 #define INSTRUCTION_REGISTER_SIZE 16
 
-// lexigraphical levels. used in printing trace, mainly.
+// lexical levels. used in printing trace, mainly.
 // each level is initialized to -1, until a call is made to that lexigraphical
 // level. at that point, the index (lexical level) is set to the current
-// base pointer.
-int lex_levels[MAX_LEXI_LEVEL] = {-1};
+// base pointer. this is really used for printing, mainly.
+//
+// I use this approach so that if we want to support more lexical levels, the
+// MAX_LEXI_LEVEL setting needs only to be changed above.
+int lex_levels[MAX_LEXI_LEVEL];
 
 //// VM Modes ////
 ////////////////////////////////////////////////////////////////////////////////
@@ -167,7 +171,7 @@ int stack_pointer = SP;
 int stack[MAX_STACK_HEIGHT] = {0};
 
 // I am under the assumption that 'code length' refers to the number of
-// instructions
+// instructions.
 Instruction code[MAX_CODE_LENGTH];
 
 // initialize to 0
@@ -183,6 +187,18 @@ int main (int argsc, char *argv[]) {
 
   // status starts off ok
   int status = STATUS_OK;
+
+  // for printing, first lexical level starts at 0 in the stack
+  // all remaining lexical levels should be -1 to indicate 'not active'
+  // when a sub-procedure is called, the base pointer will be indexed
+  // under that level's key (again, for printing the trace)
+  lex_levels[0] = BP - 1;
+
+  for (int i = 1; i < MAX_LEXI_LEVEL; i++) {
+
+    lex_levels[i] = -1;
+
+  }
 
   // interactive or normal mode
   int mode;
@@ -217,6 +233,14 @@ int main (int argsc, char *argv[]) {
   }
 
   FILE *file = fopen(filename, "r");
+
+  if (file == NULL) {
+
+    printf("cannot find the file %s\n", filename);
+
+    return 1;
+
+  }
 
   read_instructions_from_file(file);
 
@@ -357,18 +381,12 @@ int fetch_execute (int status) {
 
   status = execute_instruction(instruction); 
 
-  if (status == STATUS_ERR) {
-
-    return status;
-
-  }
-
   return status;
 
 }
 
-// called when no arguments are provided to the binary. is
-// also used from interactive mode when the 'run' or 'trace' command is used
+// called from interactive mode when 'r' or 't' command is given.
+// also called when this executable is run without the 'i' flag
 int event_loop () {
 
   int status = STATUS_OK;
@@ -395,6 +413,7 @@ int interactive_loop () {
   // if the COMMAND_HELP is issued 
   print_prompt();
 
+  // integer flag COMMAND_<command>
   int user_command;
 
   while (status == STATUS_OK) {
@@ -412,6 +431,8 @@ int interactive_loop () {
     }
 
     else if (user_command == COMMAND_QUIT) {
+
+      status = STATUS_QUIT;
 
       printf("Bye!\n");
 
@@ -433,6 +454,7 @@ int interactive_loop () {
       // run a single cycle of the program
       status = fetch_execute(status);
 
+      // if there is a problem, print out the status
       if (status != STATUS_OK) {
 
         print_status(status); 
@@ -480,7 +502,9 @@ int interactive_loop () {
     // print a full trace (runs program as side effect)
     else if (user_command == COMMAND_PRINT_TRACE) {
 
-      print_trace(status);
+      status = print_trace(status);
+
+      print_status(status);
 
     }
 
@@ -590,6 +614,10 @@ int execute_instruction (Instruction instruction) {
   int l  = instruction.l;
   int m  = instruction.m;
 
+  // increase the program counter. some operations will overwrite
+  // this with the m value of the instruction
+  program_counter++;
+  
   // look at various op code possibilities
   
   // load constant value
@@ -602,6 +630,24 @@ int execute_instruction (Instruction instruction) {
 
   // return from sub-procedure
   else if (op == OP_RTN) {
+
+    // remove the current lexical level by setting
+    // it to -1
+    for (int i = MAX_LEXI_LEVEL; i > 0; i--) {
+
+      // lexical level is occupied
+      if (lex_levels[i] != -1) {
+
+        // mark it unoccupied
+        lex_levels[i] = -1;
+        break;
+
+      }
+
+      // only vacant levels so far, keep looking
+      continue;
+
+    }
 
     // set SP behind current activation record
     stack_pointer = base_pointer - 1;
@@ -631,6 +677,14 @@ int execute_instruction (Instruction instruction) {
   // call sub-procedure
   else if (op == OP_CAL) {
 
+    // check if we have room in the stack
+    if (stack_pointer + 4 >= MAX_STACK_HEIGHT) {
+
+      // stack overflow
+      return STATUS_ERR;
+
+    }
+
     // space to return value
     stack[stack_pointer + 1] = 0;
 
@@ -649,8 +703,30 @@ int execute_instruction (Instruction instruction) {
     // create new activation record 
     program_counter = m;
 
-    // return to prevent PC from incrementing to m + 1
-    return STATUS_OK;
+    // to keep track of printing later, we will check the lexical
+    // level. find the first empty lexical level, and assign our base
+    // pointer to that level
+    for (int i = 0; i < MAX_LEXI_LEVEL; i++) {
+
+      // lexical level not accessed
+      if (lex_levels[i] == -1) {
+
+        lex_levels[i] = base_pointer;
+        break;
+
+      }
+      else if ( i == MAX_LEXI_LEVEL - 1) {
+
+        // we are attempting to create a new lexical scope outside
+        // of the virtual machine settings. return an error.
+        return STATUS_ERR;
+
+      }
+
+      // keep looking for available lexical level
+      continue;
+
+    }
 
   }
 
@@ -665,9 +741,6 @@ int execute_instruction (Instruction instruction) {
   else if (op == OP_JMP) {
 
     program_counter = m;
-
-    // return to prevent PC from incrementing to m + 1
-    return STATUS_OK;
 
   }
 
@@ -693,15 +766,18 @@ int execute_instruction (Instruction instruction) {
     // print value of a register file
     if (m == 1) {
 
-      printf("R[%d] = %d\n", r, reg[r]);
+      // please note that this will print before a stack trace.
+      // this makes sense because the instruction must execute
+      // before it can be traced
+      printf(" OP_SIO > REG[%d] = %d\n", r, reg[r]);
 
     }
     // allow user to put in a value for register
     else if (m == 2) {
 
-      int value;
-      // get user input
+      // get user input for register r
       printf("enter a value for register %d", r);
+      int value;
       scanf(" %d", &value);
       reg[r] = value;
 
@@ -818,8 +894,6 @@ int execute_instruction (Instruction instruction) {
 
   }
 
-  program_counter++;
-
   return STATUS_OK;
 
 }
@@ -853,7 +927,18 @@ void print_code () {
     l  = instruction.l;
     m  = instruction.m;
 
-    printf("%d %d %d %d\n", op, r, l, m );
+    printf("%d %d %d %d", op, r, l, m );
+
+    if (i == program_counter) {
+
+      printf("  <-- you are here\n");
+
+    }
+    else {
+
+      printf("\n");
+
+    }
 
   }
 
@@ -892,7 +977,20 @@ void print_op () {
     str_op = op < 23 && op > 0 ? opcodes[op]: opcodes[OP_NUL];
 
     // print out instruction with string name
-    printf("%d %s %d %d %d\n", i, str_op, r, l, m );
+    printf("%d %s %d %d %d", i, str_op, r, l, m );
+
+    if (i == program_counter) {
+
+      printf("  <-- you are here\n");
+
+    }
+    else {
+
+      printf("\n");
+
+    }
+
+
 
   }
   
@@ -901,15 +999,38 @@ void print_op () {
 // runs the program and prints the stack trace
 int print_trace (int status) {
 
-  printf("initial values           pc  bp  sp  \n");
+  // extra labels were added in addtion to the required ones per the rubric. 
+  printf("ins  op   r   l   m      pc  bp  sp   stack values\n");
 
   while (status == STATUS_OK) {
+
+    // locations of pipes based on lexical levels. initialize to 0
+    int *pipes = (int *)calloc(stack_pointer + 1, sizeof(int));
+
+    // set the locations of pipes
+    for (int i = 0; i < MAX_LEXI_LEVEL; i++) {
+
+      if (lex_levels[i] == -1) {
+
+        // unaccessed lexical levels. return early 
+        break;
+
+      }
+
+      // start of lexical level in stack.
+      int lex_start = lex_levels[i];
+
+      // assert index i to say 'print a pipe here' 
+      *(pipes + lex_start) = 1; 
+
+    }
 
     // fetching the instruction here for printing
     Instruction instruction = fetch_instruction();
 
-    // has a side effect of increasing the programm counter,
-    // which is why the instruction is fetched here, locally as well
+    // save the pc before it is modified, for printing.
+    int initial_pc = program_counter; 
+
     status = fetch_execute(status);
 
     int op, r, l, m;
@@ -919,13 +1040,34 @@ int print_trace (int status) {
     l  = instruction.l;
     m  = instruction.m;
 
+    // string name of opcode
     char *str_op = opcodes[op];
 
     // print operation, as well as PC, BP, and SP 
-    printf("    %s  %2d  %2d  %2d      %2d  %2d  %2d  \n",
-        str_op, r, l, m, program_counter, base_pointer, stack_pointer);
+    printf("%3d %s  %2d  %2d  %2d      %2d  %2d  %2d  ",
+        initial_pc, str_op, r, l, m, program_counter, base_pointer, stack_pointer);
 
-    // print out the stack values up to the current lexigraphical level
+    // print out the stack values
+    for (int i = 0; i <= stack_pointer; i++) {
+
+      // check if this index of stack is the start of a new lexical scope
+      // but don't bother to print a pipe for the first scope 
+      if (*(pipes + i) == 1 && i != 0) {
+
+        printf("| ");
+
+      }
+    
+      // print value at index of stack
+      printf("%2d ", stack[i]);
+      
+    }
+
+    printf("\n");
+
+    // no longer need the pipes at each lexical level for
+    // this instruction, may change by next instruction
+    free(pipes);
 
   }
   
