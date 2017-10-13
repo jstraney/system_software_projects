@@ -691,42 +691,43 @@ int is_statement (char *file_text, int *offset) {
   // call <identifier>
   if (is_callstatement(file_text, offset)) {
 
-    return STATUS_OK;
+    return TRUE;
 
   }
   // begin <statement> {; <statement>} end
   else if (is_beginstatement(file_text, offset)) {
 
-    return STATUS_OK;
+    return TRUE;
 
   }
   // if <condition> then <statement> [else <statement>]
   else if (is_ifstatement(file_text, offset)) {
 
-    return STATUS_OK;
+    return TRUE;
 
   }
   // while <condition> do
   else if (is_whilestatement(file_text, offset)) {
 
-    return STATUS_OK;
+    return TRUE;
 
   }
   // read <identifier>
   else if (is_readstatement(file_text, offset)) {
 
-    return STATUS_OK;
+    return TRUE;
 
   }
   // write <identifier>
   else if (is_writestatement(file_text, offset)) {
 
-    return STATUS_OK;
+    return TRUE;
 
   }
 
-  // check if it is an identifier. reserved words take precedence, so
-  // other expressions listed above
+  // check if it is a becomes statement. reserved words take precedence, so
+  // other statementexpressions listed above
+  
   // <ident> := <expression>
   TokenType token;
 
@@ -734,7 +735,7 @@ int is_statement (char *file_text, int *offset) {
 
   if (token != identsym) {
 
-    return STATUS_ERR;
+    return FALSE;
 
   }
 
@@ -744,19 +745,19 @@ int is_statement (char *file_text, int *offset) {
 
   if (token != becomessym) {
 
-    return STATUS_ERR;
+    return FALSE;
 
   }
 
   trim(file_text, offset);
 
-  if (is_expression(file_text, offset)) {
+  if (!is_expression(file_text, offset)) {
 
-    return STATUS_ERR;
+    return FALSE;
 
   }
 
-  return STATUS_ERR;
+  return TRUE;
 
 }
 
@@ -800,6 +801,21 @@ int is_beginstatement (char *file_text, int *offset) {
 
   trim (file_text, offset);
 
+  // okay, so I read the assignment rubric and was tracing the grammar closely.
+  // based on the grammar and the code examples, the regular expression
+  // for the begin statement does not appear to be:
+  //
+  // begin <statement> (; <statement>)* end
+  //
+  // but rather:
+  //
+  // begin (<statement>;)+ end
+  //
+  // under the first regex, this would be valid:
+  // begin
+  // write x <- no semi-colon
+  // end
+
   if (!is_statement(file_text, offset)) {
 
     return FALSE;
@@ -825,6 +841,8 @@ int is_beginstatement (char *file_text, int *offset) {
     trim(file_text, offset);
 
   }
+
+  trim(file_text, offset);
 
   token = is_endsym(file_text, offset);
 
@@ -884,19 +902,129 @@ int is_whilestatement (char *file_text, int *offset) {
 
 int is_ifstatement (char *file_text, int *offset) {
 
-  return FALSE;
+  TokenType token; 
+
+  token = is_ifsym(file_text, offset);
+
+  if (token != ifsym) {
+
+    return FALSE;
+
+  }
+
+  trim(file_text, offset);
+
+  if (!is_condition(file_text, offset)) {
+
+    return FALSE;
+
+  }
+
+  trim(file_text, offset);
+
+  token = is_thensym(file_text, offset);
+
+  if (token != thensym) {
+
+    return FALSE;
+
+  }
+
+  trim(file_text, offset);
+
+  if (!is_statement(file_text, offset)) {
+
+    return FALSE;
+
+  }
+
+  trim(file_text, offset);
+
+  // optionally accept an else statement
+
+  token = is_elsesym(file_text, offset);
+
+  // there is an else
+  if (token == elsesym) {
+
+    trim(file_text, offset);
+
+    // now look for additional statement
+    if (is_statement(file_text, offset)) {
+
+      return TRUE;
+
+    }
+    else {
+
+      // statement must follow else
+      return FALSE;
+
+    }
+
+  }
+  else {
+
+    // else is not required
+    return TRUE;
+
+  }
 
 }
 
 int is_readstatement (char *file_text, int *offset) {
 
-  return FALSE;
+  TokenType token; 
+
+  token = is_readsym(file_text, offset);
+
+  if (token != readsym) {
+
+    return FALSE;
+
+  }
+
+  trim(file_text, offset);
+
+  token = is_identsym(file_text, offset);
+
+  if (token !=  identsym) {
+
+    return FALSE;
+
+  }
+
+  trim(file_text, offset);
+
+  return TRUE;
 
 }
 
 int is_writestatement (char *file_text, int *offset) {
 
-  return FALSE;
+  TokenType token; 
+
+  token = is_writesym(file_text, offset);
+
+  if (token != writesym) {
+
+    return FALSE;
+
+  }
+
+  trim(file_text, offset);
+
+  token = is_identsym(file_text, offset);
+
+  if (token !=  identsym) {
+
+    return FALSE;
+
+  }
+
+  trim(file_text, offset);
+
+  return TRUE;
 
 }
 
@@ -932,32 +1060,32 @@ int is_condition (char *file_text, int *offset) {
 
 int is_relsym (char *file_text, int *offset) {
 
-  if (is_lessym(file_text, offset)) {
+  if (is_lessym(file_text, offset) == lessym) {
 
     return TRUE;
 
   }
-  else if (is_leqsym(file_text, offset)) {
+  else if (is_leqsym(file_text, offset) == leqsym) {
 
     return TRUE;
 
   }
-  else if (is_gtrsym(file_text, offset)) {
+  else if (is_gtrsym(file_text, offset) == gtrsym) {
 
     return TRUE;
 
   }
-  else if (is_geqsym(file_text, offset)) {
+  else if (is_geqsym(file_text, offset) == geqsym) {
 
     return TRUE;
 
   }
-  else if (is_eqsym(file_text, offset)) {
+  else if (is_eqsym(file_text, offset)  == eqsym) {
 
     return TRUE;
 
   }
-  else if (is_neqsym(file_text, offset)) {
+  else if (is_neqsym(file_text, offset) == neqsym) {
 
     return TRUE;
 
@@ -969,19 +1097,179 @@ int is_relsym (char *file_text, int *offset) {
 
 int is_expression (char *file_text, int *offset) {
 
-  return FALSE;
+  TokenType token;
+
+  token = is_plussym(file_text, offset);
+
+  if (token != plussym) {
+
+    token = is_minussym(file_text, offset);
+
+    // ^ important to remember the is_[token]
+    // functions have side effect of: 
+    //   * moving offset
+    //     pointer IFF the correct token is found,
+    //   * inserting found token into table 
+    //
+    // that said, no 'check' is really necessary
+    // here because the '-' was optional anyways
+    //
+
+  }
+
+  // last token is a plus symbol or minus symbol
+  trim(file_text, offset);
+
+  // next expression must be a term
+  if (!is_term(file_text, offset)) {
+
+    return FALSE;
+
+  }  
+
+  trim(file_text, offset);
+
+  int halt = 1;
+
+  do {
+
+    token = is_plussym(file_text, offset);
+
+    if (token != plussym) {
+
+      token = is_minussym(file_text, offset);
+
+      // we are looking for (+ | -) after last term.
+      // none found, so we break
+      if (token != minussym) {
+
+        break;
+
+      }
+
+    }
+
+    // there was a plus or minus symbol, find the term
+    trim(file_text, offset);
+
+    if (!is_term(file_text, offset)) {
+
+      // since the last symbol was (+ | -), a term is
+      // manditory in the grammar
+      return FALSE; 
+
+    }
+
+    // do another round
+    halt = 0;
+
+  } while(!halt);
+
+  return TRUE;
   
 }
 
 int is_term (char *file_text, int *offset) {
 
-  return FALSE;
+  if (!is_factor(file_text, offset)) {
+
+    return FALSE;
+
+  }
+
+  // factor found
+  trim(file_text, offset);
+
+  TokenType token;
+
+  int halt = 1;
+
+  // {( * | / ) <factor> }
+  do {
+
+    token = is_multsym(file_text, offset);
+
+    if (token != multsym) {
+
+      token = is_slashsym(file_text, offset);
+
+      trim(file_text, offset);
+
+      if (token != slashsym) {
+
+        // {(* | / ) <factor>} is optional
+        return TRUE;
+
+      }
+
+    }
+
+    trim(file_text, offset);
+
+    if (!is_factor(file_text, offset)) {
+
+      // once we've scanned a mult or slash, a
+      // factor is required
+      return FALSE;
+
+    }
+
+    halt = 0;
+
+  } while(!halt);
+
+  return TRUE;
 
 }
 
 int is_factor (char *file_text, int *offset) {
 
-  return FALSE;
+  TokenType token;
+
+  token = is_identsym(file_text, offset);
+
+  if (token == identsym) {
+
+    // an identifier is a factor 
+    return TRUE;
+
+  }
+
+  token = is_numbersym(file_text, offset);
+
+  if (token == numbersym) {
+
+    // a number is a factor 
+    return TRUE;
+
+  }
+
+  // check for left parentheses
+  token = is_lparentsym(file_text, offset);
+
+  if (token != lparentsym) {
+
+    return FALSE;
+
+  }
+
+  // check for expression
+  if (!is_expression(file_text, offset)) {
+
+    return FALSE;
+
+  }
+
+  // check for right parentheses
+  token = is_rparentsym(file_text, offset);
+
+  if (token != rparentsym) {
+
+    return FALSE;
+
+  }
+
+  return TRUE;
 
 }
 
@@ -1025,19 +1313,30 @@ int is_numbersym (char *file_text, int *offset) {
 
   }
 
+  append_token_buffer(next);
+
   local_offset++;
 
-  do {
+  // get current character
+  next = *(file_text + local_offset);
+
+  while(is_digit(next)) {
+
+    append_token_buffer(next);
+
+    local_offset++;
 
     // get current character
     next = *(file_text + local_offset);
 
-  // if it is a digit, increase the offset.
-  }while(is_digit(next) && local_offset++);
+  }
+
+  char *lexeme = get_token_buffer_value();
+
+  insert_symbol(lexeme, numbersym);
 
   *offset = local_offset;
 
-  printf("NERMBER\n");
 
   // it's a number (e.g. "110082")
   return numbersym;
@@ -1114,7 +1413,7 @@ int is_geqsym (char *file_text, int *offset) {
 
 int is_lparentsym (char *file_text, int *offset) {
 
-  return is_terminal(file_text, offset, "(", rparentsym);
+  return is_terminal(file_text, offset, "(", lparentsym);
 
 }
 
