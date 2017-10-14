@@ -138,7 +138,7 @@ typedef struct Symbol {
 //// Structures ////
 // take the buffer we've been appending to, as well as the token
 // returned by the function call stack. Then insert into the symbol table
-Symbol Symbol_new(char *lexeme, int token_type);
+Symbol *Symbol_new(char *lexeme, int token_type);
 
 int insert_symbol(char *lexeme, int token_type);
 
@@ -151,9 +151,9 @@ int interactive_loop(FILE *file);
 // runs the parser until finished
 int event_loop(FILE *file);
 
-void print_lexemes();
-
 int get_user_command();
+
+void print_code  (FILE *file);
 
 void print_status(int status);
 

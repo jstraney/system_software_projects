@@ -36,16 +36,22 @@ A)    aa N)    nn A)    aa L)llllll    Y)    Z)zzzzzz E)eeeeee R)    rr
 #define MODE_NORMAL      0
 #define MODE_INTERACTIVE 1
 
-#define STATUS_OK        0
-#define STATUS_ERR       1
-#define STATUS_QUIT      2 
-#define STATUS_FINISHED  3 
+// we will make our errors go in the opposite direction so they
+// are not confused with symbol enumerations
+#define NO_ERR              0
+#define ERR_IDENT_START    -1 
+#define ERR_NUM_TOO_LONG   -2 
+#define ERR_IDENT_TOO_LONG -3 
+#define ERR_INVALID_TOKEN  -4 
+#define STATUS_QUIT        -5 
+#define STATUS_FINISHED    -6 
 
 char *statuses[] = {
   "everything's cool",
-  "there was an error",
-  "program has quit",
-  "program has finished",
+  "identifier must start with a letter",
+  "number too long (max length of 5)",
+  "identifier is too long (max length of 11)",
+  "unrecognized token"
 };
 
 #define MAX_TOKEN_SIZE 11
@@ -58,51 +64,138 @@ char *statuses[] = {
 #define COMMAND_STEP            2 
 #define COMMAND_RUN             3 
 #define COMMAND_PRINT_STATUS    4
+#define COMMAND_PRINT_CODE      5 
+#define COMMAND_PRINT_LEX_TABLE 6
+#define COMMAND_PRINT_LEX_LIST  7
+#define COMMAND_DO_ALL          8 
 
-#define INVALID_SYMBOL         -1
 
 ////////////////////////////////////////////////////////////////////////////////
 char *token_buffer;
+
 int buffer_index = 0;
 
 // first symbol in the program
 Symbol *head;
 
-Symbol Symbol_new(char *lexeme, int token_type) {
+Symbol *Symbol_new(char *lexeme, int token_type) {
 
-  Symbol this;
+  Symbol *this;
 
-  this.lexeme     = lexeme;
+  this = malloc(sizeof(Symbol));
 
-  this.token_type = token_type;
+  this->lexeme     = lexeme;
 
-  this.next = NULL;
+  this->token_type = token_type;
+
+  this->next = NULL;
 
   return this;
 
 }
 
+// put symbol into the symbol table
 int insert_symbol (char *lexeme, int token_type) {
 
-  Symbol symbol = Symbol_new(lexeme, token_type);
+  Symbol *current = head;
 
-  while (head->next != NULL) {
+  // traverse symbol table
+  while (current->next != NULL) {
 
-    head = head->next;
+    current = current->next;
 
   }
 
-  *head = symbol;
+  Symbol *symbol = Symbol_new(lexeme, token_type);
 
-  print_symbol(symbol);
+  // set the vacant 'next' to symbol
+  current->next = symbol;
 
-  return STATUS_OK;
+  return NO_ERR;
 
 }
 
 void print_symbol (Symbol symbol) {
 
-  printf("%s     %d\n", symbol.lexeme, symbol.token_type);
+  // our implementation of the symbol table has the null symbol pointing to the
+  // start of the table (like a linked list. here we will skip it.
+  if (symbol.token_type == nulsym)
+    return;
+
+  printf("%-11s\t\t%2d\n", symbol.lexeme, symbol.token_type);
+
+}
+
+// starts at first symbol and goes to end of program.
+void print_symbol_table () {
+
+  Symbol *symbol;
+
+  symbol = head;
+
+  printf("Lexeme Table:\n");
+  printf("lexeme\t\ttoken type\n");
+
+  while (symbol->next != NULL ) {
+
+    symbol = symbol->next;
+
+    print_symbol(*symbol);
+
+  }
+
+  printf("\n");
+
+}
+
+void print_symbol_list () {
+
+  Symbol *symbol;
+
+  symbol = head;
+
+  printf("Lexeme List:\n");
+
+  while (symbol->next != NULL ) {
+
+    symbol = symbol->next;
+
+    if (symbol->token_type == 2) {
+
+      printf("%d %s ", symbol->token_type, symbol->lexeme);
+
+    }
+    else {
+
+      printf("%d ", symbol->token_type);
+
+    }
+
+  }
+
+  printf("\n");
+
+}
+
+void print_code (FILE *file) {
+
+  // create a new, local pointer (so we don't futz with
+  // the pointer position.
+  FILE *fp = file;
+
+  fseek(fp, 0, SEEK_SET);
+
+  char c;
+
+  printf("Code File:\n");
+
+  while ((c = getc(fp)) != EOF) {
+
+    printf("%c", c);
+
+  }
+
+  printf("\n");
 
 }
 
@@ -160,15 +253,13 @@ void empty_token_buffer() {
 int main (int argc, char * argv[]) {
 
   // status starts off ok
-  int status = STATUS_OK;
+  int status = NO_ERR;
 
   // don't forget to allocate an extra space for '\0'
   token_buffer = (char *)calloc(MAX_TOKEN_SIZE + 1, sizeof (char));
 
   // create an empty start symbol
-  Symbol start_symbol;
-  start_symbol.next = NULL;
-  head = &start_symbol;
+  head = Symbol_new("", nulsym);
 
   // interactive or normal mode
   int mode;
@@ -196,7 +287,7 @@ int main (int argc, char * argv[]) {
 
     printf("the lexical parser requires a filename, or the -i flag followed by a file name.\n");
 
-    status = STATUS_ERR;
+    status = ERR_INVALID_TOKEN;
 
     return status;
 
@@ -252,6 +343,10 @@ void print_prompt () {
   printf("= h - call for help                     ==========\n");
   printf("= r - run program from start to finsish ==========\n");
   printf("= i - print status code                 ==========\n");
+  printf("= c - print program file                ==========\n");
+  printf("= t - print lexeme table                ==========\n");
+  printf("= l - print lexeme list                 ==========\n");
+  printf("= a - just give me the output, okay?    ==========\n");
   printf("==================================================\n\n");
 
 }
@@ -276,6 +371,18 @@ int get_user_command () {
   // prints status code when stepping through 
   commands['i'] = COMMAND_PRINT_STATUS;
 
+  // prints status code when stepping through 
+  commands['c'] = COMMAND_PRINT_CODE;
+
+  // prints status code when stepping through 
+  commands['t'] = COMMAND_PRINT_LEX_TABLE;
+
+  // prints status code when stepping through 
+  commands['l'] = COMMAND_PRINT_LEX_LIST;
+
+  // runs the program and prints all the output 
+  commands['a'] = COMMAND_DO_ALL;
+
   // character entered in by user
   char user_entry;
 
@@ -284,7 +391,8 @@ int get_user_command () {
 
   // check if valid using a whitelist approach
   int valid =
-    user_entry == 'q' || user_entry == 'h' || user_entry == 'r' || user_entry == 'i'; 
+    user_entry == 'q' || user_entry == 'h' || user_entry == 'r' || user_entry == 'i' ||
+    user_entry == 'c' || user_entry == 't' || user_entry == 'l' || user_entry == 'a'; 
 
   // if the character is not valid, help the user out.
   // return -1;
@@ -308,7 +416,7 @@ int get_user_command () {
 // run the vm through interactive mode
 int interactive_loop (FILE *file) {
 
-  int status = STATUS_OK;
+  int status = NO_ERR;
 
   // print the prompt once on start up. print again
   // if the COMMAND_HELP is issued 
@@ -317,7 +425,7 @@ int interactive_loop (FILE *file) {
   // integer flag COMMAND_<command>
   int user_command;
 
-  while (status == STATUS_OK) {
+  while (status == NO_ERR) {
 
     printf(">> ");
 
@@ -350,17 +458,18 @@ int interactive_loop (FILE *file) {
 
     }
 
-    else if (user_command == COMMAND_STEP) {
-
-
-    }
-    
     else if (user_command == COMMAND_RUN) {
 
       // call event loop as a subprocedure.
       status = event_loop(file);
 
-      print_status(status);
+      printf("finished analyzing\n");
+
+    }
+    
+    else if (user_command == COMMAND_PRINT_CODE) {
+
+      print_code(file);
 
     }
 
@@ -371,12 +480,47 @@ int interactive_loop (FILE *file) {
 
     }
 
+    else if (user_command == COMMAND_PRINT_LEX_TABLE) {
+
+      print_symbol_table();
+
+    }
+
+    else if (user_command == COMMAND_PRINT_LEX_LIST) {
+
+      print_symbol_list();
+
+    }
+
+    else if (user_command == COMMAND_DO_ALL) {
+
+      print_code(file);
+      // call event loop as a subprocedure.
+      status = event_loop(file);
+
+      print_symbol_table();
+
+      print_symbol_list();
+
+    }
+
   }
   
   return status;
 
 }
 
+int event_loop (FILE *file) {
+
+  int status;
+
+  status = is_program(file);
+
+  return status;
+
+}
+
+// checks if reserved word
 int is_reserved_word (char *lexeme) {
 
   return
@@ -387,6 +531,7 @@ int is_reserved_word (char *lexeme) {
     strcmp("else",      lexeme) == 0 ||
     strcmp("end",       lexeme) == 0 ||
     strcmp("if",        lexeme) == 0 ||
+    strcmp("odd",       lexeme) == 0 ||
     strcmp("procedure", lexeme) == 0 ||
     strcmp("read",      lexeme) == 0 ||
     strcmp("then",      lexeme) == 0 ||
@@ -401,8 +546,6 @@ int is_reserved_word (char *lexeme) {
 // args: file pointer
 // returns: integer flag to indicate status
 int is_program (FILE *fp) {
-
-  int status = STATUS_OK;
 
   // our lexical parser loads the file into a character buffer,
   // to easily manipulate pointer location using local function
@@ -424,21 +567,19 @@ int is_program (FILE *fp) {
   // read entire file into the character buffer
   fread(file_text, size, 1, fp);
 
-  fclose(fp);
+  // keep the file open for printing purposes
 
   // 'global' offset from the character pointer
   int  *offset = (int *)malloc(sizeof(int));
 
   *offset = 0;
 
-  while(status != STATUS_ERR) { 
+  int status = NO_ERR;
+
+  while(status != STATUS_FINISHED) { 
     
     // must have a block
-    ((status = is_block(file_text, offset)) == STATUS_OK) ||
-    (status = STATUS_ERR);
-
-    if (status == STATUS_ERR)
-      break;
+    status = is_block(file_text, offset);
 
     int halt;
 
@@ -464,13 +605,12 @@ int is_block (char *file_text, int *offset) {
 
   int status;
 
-  (status = is_constdec  (file_text, offset) != STATUS_ERR) ||
-  (status = is_vardec    (file_text, offset) != STATUS_ERR) ||
-  (status = is_procdec   (file_text, offset) != STATUS_ERR) ||
-  (status = is_statement (file_text, offset) != STATUS_ERR) ||
-  (status = STATUS_ERR);
+  (status = is_constdec  (file_text, offset) != ERR_INVALID_TOKEN) ||
+  (status = is_vardec    (file_text, offset) != ERR_INVALID_TOKEN) ||
+  (status = is_procdec   (file_text, offset) != ERR_INVALID_TOKEN) ||
+  (status = is_statement (file_text, offset) != ERR_INVALID_TOKEN);
 
-  return status == STATUS_ERR? STATUS_OK: STATUS_ERR;
+  return status;
 
 }
 
@@ -480,21 +620,98 @@ int is_constdec (char *file_text, int *offset) {
 
   token = is_constsym(file_text, offset);
 
-  if (token == constsym) {
+  if (token != constsym) {
 
-    // create Symbol struct
-    //
-    // put into symbol table
-    // empty token buffer
-
-  } 
-  else {
-
-    return STATUS_ERR;
+    return ERR_INVALID_TOKEN;
 
   }
 
-  return STATUS_OK;
+  trim(file_text, offset);
+
+  token = is_identsym(file_text, offset);
+
+  trim(file_text, offset);
+
+  if (token != identsym) {
+
+    return ERR_INVALID_TOKEN;
+
+  }
+
+  token = is_eqsym (file_text, offset);
+  
+  trim(file_text, offset);
+
+  if (token != eqsym) {
+
+    return ERR_INVALID_TOKEN;
+    
+  }
+
+  token = is_numbersym(file_text, offset);
+
+  trim(file_text, offset);
+
+  if (token != numbersym) {
+
+    return ERR_INVALID_TOKEN;
+
+  }
+
+  // optionally check for commas
+  token = is_commasym(file_text, offset);
+
+  trim(file_text, offset);
+
+  // loop while we have a comma followed by identifier
+  while (token == commasym) {
+
+    token = is_identsym(file_text, offset);
+
+    trim(file_text, offset);
+
+    if (token != identsym) {
+
+      return ERR_INVALID_TOKEN;
+
+    }
+
+    token = is_eqsym (file_text, offset);
+    
+    trim(file_text, offset);
+
+    if (token != eqsym) {
+
+      return ERR_INVALID_TOKEN;
+
+    }
+
+    token = is_numbersym(file_text, offset);
+
+    trim(file_text, offset);
+
+    if (token != numbersym) {
+
+      return ERR_INVALID_TOKEN;
+
+    }
+
+
+    token = is_commasym(file_text, offset);
+
+    trim(file_text, offset);
+
+  }
+
+  token = is_semicolonsym(file_text, offset);
+
+  if (token != semicolonsym) {
+
+    return ERR_INVALID_TOKEN;
+
+  }
+
+  return NO_ERR;
 
 }
 
@@ -504,17 +721,9 @@ int is_vardec (char *file_text, int *offset) {
 
   token = is_varsym(file_text, offset);
 
-  if (token == varsym) {
+  if (token != varsym) {
 
-    // create Symbol struct
-    //
-    // put into symbol table
-    // empty token buffer
-
-  }
-  else {
-
-    return STATUS_ERR; 
+    return ERR_INVALID_TOKEN; 
 
   }
 
@@ -522,17 +731,9 @@ int is_vardec (char *file_text, int *offset) {
 
   token = is_identsym(file_text, offset);
 
-  if (token == identsym) {
+  if (token != identsym) {
 
-    // create Symbol struct
-     
-    // put into symbol table
-    // empty token buffer
-
-  }
-  else {
-
-    return STATUS_ERR; 
+    return ERR_INVALID_TOKEN; 
 
   }
 
@@ -554,23 +755,14 @@ int is_vardec (char *file_text, int *offset) {
       // now see if next token is an identifier
       token = is_identsym(file_text, offset); 
       
-      if (token == identsym) { 
-
-        // create Symbol struct
-           
-        // put into symbol table
-        // empty token buffer
-        
-        // trim
-        trim (file_text, offset);
-
-      }
       // comma must be followed by an identifier
-      else {
+      if (token != identsym) {
 
-        return INVALID_SYMBOL;
+        return ERR_INVALID_TOKEN;
 
       }
+
+      trim(file_text, offset);
 
     }
     // if there is no comma, we must find a semicolon
@@ -579,20 +771,9 @@ int is_vardec (char *file_text, int *offset) {
       // check if next symbol is a semicolon
       token = is_semicolonsym(file_text, offset);
 
-      // if it is a semicolon, trim any whitespace
-      if (token == semicolonsym) {
-        // create Symbol struct
-           
-        // put into symbol table
-        // empty token buffer
-         
-        // trim
-        trim (file_text, offset);
-       
-      } 
-      else {
+      if (token != semicolonsym) {
 
-        return STATUS_ERR;
+        return ERR_INVALID_TOKEN;
 
       }
 
@@ -600,7 +781,7 @@ int is_vardec (char *file_text, int *offset) {
 
     if (token == nulsym) {
 
-      return STATUS_ERR;
+      return ERR_INVALID_TOKEN;
 
     }
 
@@ -612,8 +793,7 @@ int is_vardec (char *file_text, int *offset) {
   // trim just in case
   trim(file_text, offset);
 
-
-  return STATUS_OK;
+  return NO_ERR;
 
 }
 
@@ -627,9 +807,13 @@ int is_identsym (char *file_text, int *offset) {
 
   next = *(file_text + local_offset);
 
+  int err = NO_ERR;
+
   if (!is_letter(next)) {
 
-    return INVALID_SYMBOL;
+    printf("identifier at position %d must start with a letter\n", local_offset);
+
+    return ERR_IDENT_START;
 
   }
 
@@ -642,10 +826,18 @@ int is_identsym (char *file_text, int *offset) {
 
   next = *(file_text + local_offset);
 
+  int ident_len = local_offset - *offset;
+
   // if the char is letter or digit, increase local offset
   while (is_letter(next) || is_digit(next)) {
+
+    ident_len = (local_offset - *offset);
      
-    append_token_buffer(next);
+    if (ident_len < MAX_TOKEN_SIZE) {
+
+      append_token_buffer(next);
+
+    }
 
     local_offset++;
 
@@ -655,6 +847,13 @@ int is_identsym (char *file_text, int *offset) {
   } 
 
   char *lexeme = get_token_buffer_value();
+
+  if (ident_len > MAX_TOKEN_SIZE) { 
+
+    printf("token of length %d exceeds max length of 11 at position %d\n", ident_len, *offset);
+    printf("storing truncated value of %s instead\n\n", lexeme);
+
+  }
 
   // identifier cannot be reserved.
   if (is_reserved_word(lexeme)) {
@@ -674,7 +873,89 @@ int is_identsym (char *file_text, int *offset) {
 
 int is_procdec (char *file_text, int *offset) {
 
-  return STATUS_ERR;
+  char *next;
+
+  int local_offset = *offset;
+
+  next = (file_text + local_offset);
+
+  int status = NO_ERR;
+
+  TokenType token;
+
+  int halt = 0;
+
+  //loops until it doesn't see "procedure".
+  do {
+
+    // checks for "procedure"
+    token = is_procsym(file_text, offset);
+
+    if (token != procsym) {
+
+      break;
+
+    }
+
+    trim(file_text, offset);
+
+    //expect identifier here
+    token = is_identsym(file_text, offset);
+
+    if (token != identsym) {
+
+      break;
+
+    }
+
+    trim(file_text, offset);
+
+    //expect a semicolon here
+    token = is_semicolonsym(file_text, offset);
+
+
+    if (token != semicolonsym){
+
+      break;
+
+    }
+
+    trim(file_text, offset);
+
+    // check for block
+    if (is_block(file_text, offset) != NO_ERR){
+
+      break;
+
+    }
+
+    trim(file_text, offset);
+
+    //expect another semicolon here
+    token = is_semicolonsym(file_text, offset);
+
+    if (token != semicolonsym){
+
+      break;
+
+    }
+
+    trim(file_text, offset);
+
+    token = is_procsym(file_text, offset);
+
+  } while (!halt);
+
+  //Statement
+  trim(file_text, offset);
+
+  if (is_statement(file_text, offset)){
+
+    return FALSE;
+
+  }
+
+  return TRUE;
 
 }
 
@@ -686,7 +967,7 @@ int is_statement (char *file_text, int *offset) {
 
   next = (file_text + local_offset);
 
-  int status = STATUS_OK;
+  int status = NO_ERR;
 
   // call <identifier>
   if (is_callstatement(file_text, offset)) {
@@ -815,8 +1096,16 @@ int is_beginstatement (char *file_text, int *offset) {
   // begin
   // write x <- no semi-colon
   // end
+  //
+  // in many examples the last statement of the begin statement
+  // is terminated with a semi-colon. The exception is 'while' statements,
+  // though im unsure how to proceed with that.
 
-  if (!is_statement(file_text, offset)) {
+  trim(file_text, offset);
+
+  int halt = 0;
+
+  if(!is_statement(file_text, offset)) {
 
     return FALSE;
 
@@ -824,23 +1113,32 @@ int is_beginstatement (char *file_text, int *offset) {
 
   trim(file_text, offset);
 
-  token = is_semicolonsym(file_text, offset);
+  do {
 
-  trim(file_text, offset);
+    token = is_semicolonsym(file_text, offset);
 
-  while (token == semicolonsym) {
-
-    if (!is_statement(file_text, offset)) {
+    if (token != semicolonsym) {
 
       return FALSE;
 
     }
-  
-    token = is_semicolonsym(file_text, offset);
+
+    trim (file_text, offset);
+
+    if (is_statement(file_text, offset)) {
+
+      halt = 0;
+
+    }
+    else {
+
+      halt = 1;
+
+    }
 
     trim(file_text, offset);
 
-  }
+  } while(!halt);
 
   trim(file_text, offset);
 
@@ -1029,6 +1327,33 @@ int is_writestatement (char *file_text, int *offset) {
 }
 
 int is_condition (char *file_text, int *offset) {
+
+  TokenType token;
+
+  token = is_oddsym(file_text, offset);
+
+  trim(file_text, offset);
+
+  // check if odd symbol
+  if (token == oddsym) {
+
+    // now see if there is an expression
+    if (is_expression(file_text, offset)) {
+
+      // this is a condition
+      return TRUE;
+
+    }
+
+    trim(file_text, offset);
+
+    // condition not of form:
+    // odd <expression>
+    //
+    // now see if conidtion follows the form:
+    // <expression> <relsym> <expression>
+
+  }
 
   if (!is_expression(file_text, offset)) {
 
@@ -1226,20 +1551,20 @@ int is_factor (char *file_text, int *offset) {
 
   TokenType token;
 
-  token = is_identsym(file_text, offset);
-
-  if (token == identsym) {
-
-    // an identifier is a factor 
-    return TRUE;
-
-  }
-
   token = is_numbersym(file_text, offset);
 
   if (token == numbersym) {
 
     // a number is a factor 
+    return TRUE;
+
+  }
+
+  token = is_identsym(file_text, offset);
+
+  if (token == identsym) {
+
+    // an identifier is a factor 
     return TRUE;
 
   }
@@ -1253,6 +1578,8 @@ int is_factor (char *file_text, int *offset) {
 
   }
 
+  trim(file_text, offset);
+
   // check for expression
   if (!is_expression(file_text, offset)) {
 
@@ -1262,6 +1589,8 @@ int is_factor (char *file_text, int *offset) {
 
   // check for right parentheses
   token = is_rparentsym(file_text, offset);
+
+  trim(file_text, offset);
 
   if (token != rparentsym) {
 
@@ -1309,7 +1638,7 @@ int is_numbersym (char *file_text, int *offset) {
 
   if (!is_digit(next)) {
 
-    return INVALID_SYMBOL;
+    return nulsym;
 
   }
 
@@ -1320,11 +1649,19 @@ int is_numbersym (char *file_text, int *offset) {
   // get current character
   next = *(file_text + local_offset);
 
+  int num_len = local_offset - *offset;
+
   while(is_digit(next)) {
 
-    append_token_buffer(next);
+    if (num_len < MAX_DIGIT_SIZE) {
+
+      append_token_buffer(next);
+
+    }
 
     local_offset++;
+
+    num_len = local_offset - *offset;
 
     // get current character
     next = *(file_text + local_offset);
@@ -1332,6 +1669,14 @@ int is_numbersym (char *file_text, int *offset) {
   }
 
   char *lexeme = get_token_buffer_value();
+
+  if (num_len > MAX_DIGIT_SIZE) {
+
+    printf("max number length of %d exceeded at position %d\n", MAX_DIGIT_SIZE, *offset);
+
+    printf("storing truncated value of %s\n\n", lexeme);
+
+  }
 
   insert_symbol(lexeme, numbersym);
 
@@ -1367,13 +1712,11 @@ int is_slashsym (char *file_text, int *offset) {
 
 }
 
-/*
 int is_oddsym (char *file_text, int *offset) {
 
-  return is_terminal(file_text, offset, "odd", semicolonsym);
+  return is_terminal(file_text, offset, "odd", oddsym);
 
 }
-*/
 
 int is_eqsym (char *file_text, int *offset) {
 
@@ -1577,7 +1920,7 @@ int is_terminal (char *file_text, int *offset, char symbol[], int token_type) {
 
     if (next == '\0' || next != symbol[i]) {
 
-      return INVALID_SYMBOL;
+      return NO_ERR;
 
     }
 
@@ -1606,16 +1949,6 @@ int is_letter (char c ) {
 int is_digit (char c) {
 
   return ( c >= '0' && c <= '9');
-
-}
-
-int event_loop (FILE *file) {
-
-  int status;
-
-  status = is_program(file);
-
-  return status;
 
 }
 

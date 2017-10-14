@@ -20,3 +20,21 @@ dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 
 
 ================================================================================
+
+To compile the analyzer, run the following command
+
+gcc main.c -o main
+
+in order to see full output, run this command
+
+./main -i <yourfilenamehere>
+
+this will bring up the prompt. To see full output, give the 'a' command.
+
+IMPORTANT: I have carefully traced the regular grammar provided in the rubric but cannot
+produce certain expressions in the code examples in the same rubric. (inside a begin
+statement, the last statement will not be followed by semi-colon according to grammar,
+in code examples, they always are except if they are while statements)
+
+if the executable is run without the -i flag, it will simply analyze silently
+and exit when finished.
