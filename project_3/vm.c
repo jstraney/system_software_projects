@@ -9,98 +9,25 @@ ______      ___  ___  ___  _____  _   _ _____ _   _  _____
 */
 // Written by Jeffrey Straney and Frank Volk 
 // 09-22-2017
-// COP3402 assignment 1
+// CVM_OP3402 assignment 1
 
 //// Header Files ////
 ////////////////////////////////////////////////////////////////////////////////
-#ifndef VMACHINE 
+#ifndef VM 
 #include "vm.h"
-#define VMACHINE 
+#define VM 
 #endif
 
-//// Initial Pointer Values ////
-////////////////////////////////////////////////////////////////////////////////
-// these are just the starting values, actual stack pointer, base pointer etc.
-// are defined lower in code.
-#define SP 0 
-#define BP 1 
-#define PC 0 
-#define IR 0 
-
-//// Constants ////
-////////////////////////////////////////////////////////////////////////////////
-#define MAX_STACK_HEIGHT        2000
-#define MAX_CODE_LENGTH          500
-#define REG_FILE_SIZE              8 
-#define MAX_LEXI_LEVEL             3
-#define INSTRUCTION_REGISTER_SIZE 16
-
-// lexical levels. used in printing trace, mainly.
-// each level is initialized to -1, until a call is made to that lexigraphical
-// level. at that point, the index (lexical level) is set to the current
-// base pointer. this is really used for printing, mainly.
-//
-// I use this approach so that if we want to support more lexical levels, the
-// MAX_LEXI_LEVEL setting needs only to be changed above.
-int lex_levels[MAX_LEXI_LEVEL];
-
-//// VM Modes ////
-////////////////////////////////////////////////////////////////////////////////
-#define MODE_INTERACTIVE 0
-#define MODE_NORMAL      1 
-
-//// VM Statuses ////
-////////////////////////////////////////////////////////////////////////////////
-#define STATUS_OK        0
-#define STATUS_ERR       1
-#define STATUS_QUIT      2 
-#define STATUS_FINISHED  3 
-
-char *statuses[] = {
-  "everything's cool",
-  "there was an error",
-  "program has quit",
-  "program has finished",
+char *vm_statuses[] = {
+  "VM's cool",
+  "there was a VM error",
+  "VM has quit",
+  "VM has finished",
 };
 
-//// Interactive Mode User Commands ////
-////////////////////////////////////////////////////////////////////////////////
-#define COMMAND_INVALID        -1
-#define COMMAND_QUIT            0 
-#define COMMAND_HELP            1 
-#define COMMAND_STEP            2 
-#define COMMAND_RUN             3 
-#define COMMAND_PRINT_STATUS    4 
-#define COMMAND_PRINT_CODE      5 
-#define COMMAND_PRINT_OP        6 
-#define COMMAND_PRINT_TRACE     7 
-#define COMMAND_PRINT_REGISTERS 8 
-
-//// OP Codes ////
-////////////////////////////////////////////////////////////////////////////////
-#define OP_NUL  0
-#define OP_LIT  1
-#define OP_RTN  2
-#define OP_LOD  3
-#define OP_STO  4
-#define OP_CAL  5
-#define OP_INC  6
-#define OP_JMP  7
-#define OP_JPC  8
-#define OP_SIO  9
-#define OP_NEG 10
-#define OP_ADD 11
-#define OP_SUB 12
-#define OP_MUL 13
-#define OP_DIV 14
-#define OP_ODD 15
-#define OP_MOD 16
-#define OP_EQL 17
-#define OP_NEQ 18
-#define OP_LSS 19
-#define OP_LEQ 20
-#define OP_GTR 21
-#define OP_GEQ 22
+// I use this approach so that if we want to support more lexical levels, the
+// MAX_LEXI_LEVEL setting needs only to be changed above.
+int lex_levels[VM_MAX_LEXI_LEVEL];
 
 char *opcodes[] = {
   // arrays start from 0, ISA starts from 1. "???" 
@@ -158,36 +85,36 @@ int Instruction_empty (Instruction this) {
 
 }
 
-// simply check if instruction is OP_SIO and has appropriate values
+// simply check if instruction is VM_OP_SIO and has appropriate values
 int Instruction_halt (Instruction this) {
 
   // check if instruction is halt
-  return this.op == OP_SIO && this.r == 0 && this.l == 0 && this.m == 3;
+  return this.op == VM_OP_SIO && this.r == 0 && this.l == 0 && this.m == 3;
 
 }
 
 // create stack. initialize to 0
 int stack_pointer = SP;
-int stack[MAX_STACK_HEIGHT] = {0};
+int stack[VM_MAX_STACK_HEIGHT] = {0};
 
 // I am under the assumption that 'code length' refers to the number of
 // instructions.
-Instruction code[MAX_CODE_LENGTH];
+Instruction code[VM_MAX_CODE_LENGTH];
 
 // initialize to 0
 int program_counter = PC;
 
 // create register file. initialize to 0
-int reg[REG_FILE_SIZE] = {0}; 
+int reg[VM_REG_FILE_SIZE] = {0}; 
 
 // keeps track of lexigraphical levels
 int base_pointer = BP;
 
-/*
-int main (int argsc, char *argv[]) {
+
+int vm_entry(FILE *fp) {
 
   // status starts off ok
-  int status = STATUS_OK;
+  int status = VM_STATUS_OK;
 
   // for printing, first lexical level starts at 0 in the stack
   // all remaining lexical levels should be -1 to indicate 'not active'
@@ -195,12 +122,13 @@ int main (int argsc, char *argv[]) {
   // under that level's key (again, for printing the trace)
   lex_levels[0] = BP - 1;
 
-  for (int i = 1; i < MAX_LEXI_LEVEL; i++) {
+  for (int i = 1; i < VM_MAX_LEXI_LEVEL; i++) {
 
     lex_levels[i] = -1;
 
   }
 
+  /*
   // interactive or normal mode
   int mode;
 
@@ -227,7 +155,7 @@ int main (int argsc, char *argv[]) {
 
     printf("the p-machine requires a filename, or the -i flag followed by a file name.\n");
 
-    status = STATUS_ERR;
+    status = VM_STATUS_ERR;
 
     return status;
 
@@ -242,11 +170,15 @@ int main (int argsc, char *argv[]) {
     return 1;
 
   }
+  */
 
-  read_instructions_from_file(file);
+  read_instructions_from_file(fp);
 
-  fclose(file);
+  status = vm_event_loop();
 
+  fclose(fp);
+
+  /*
   if (mode == MODE_INTERACTIVE) {
 
     status = interactive_loop();
@@ -257,11 +189,13 @@ int main (int argsc, char *argv[]) {
     status = event_loop();
 
   }
+  */
 
   return status;
 
 }
 
+/*
 // print table on program start in interactive mode
 void print_prompt () {
 
@@ -302,13 +236,13 @@ int get_user_command () {
   commands['r'] = COMMAND_RUN;
 
   // prints status code when stepping through 
-  commands['i'] = COMMAND_PRINT_STATUS;
+  commands['i'] = COMMAND_PRINT_VM_STATUS;
 
   // prints decimal instruction codes 
   commands['c'] = COMMAND_PRINT_CODE;
 
   // prints codes with string opcode names 
-  commands['o'] = COMMAND_PRINT_OP;
+  commands['o'] = COMMAND_PRINT_VM_OP;
 
   // prints full trace of the program output 
   commands['t'] = COMMAND_PRINT_TRACE;
@@ -366,7 +300,7 @@ int fetch_execute (int status) {
   // check if instruction triggers halt
   if (Instruction_halt(instruction)) {
 
-    status = STATUS_FINISHED;
+    status = VM_STATUS_FINISHED;
 
     return status;
 
@@ -375,7 +309,7 @@ int fetch_execute (int status) {
   // or check if instruction is empty
   if (Instruction_empty(instruction)) {
 
-    status = STATUS_FINISHED;
+    status = VM_STATUS_FINISHED;
 
     return status;
 
@@ -387,15 +321,14 @@ int fetch_execute (int status) {
 
 }
 
-/*
 // called from interactive mode when 'r' or 't' command is given.
 // also called when this executable is run without the 'i' flag
-int event_loop () {
+int vm_event_loop () {
 
-  int status = STATUS_OK;
+  int status = VM_STATUS_OK;
 
   // stop program if quit, error, or finished.
-  while (status == STATUS_OK) {
+  while (status == VM_STATUS_OK) {
 
     // run a single cycle of the program.  and return the new status
     status = fetch_execute(status);
@@ -407,10 +340,11 @@ int event_loop () {
 
 }
 
+/*
 // run the vm through interactive mode
 int interactive_loop () {
 
-  int status = STATUS_OK;
+  int status = VM_STATUS_OK;
 
   // print the prompt once on start up. print again
   // if the COMMAND_HELP is issued 
@@ -419,7 +353,7 @@ int interactive_loop () {
   // integer flag COMMAND_<command>
   int user_command;
 
-  while (status == STATUS_OK) {
+  while (status == VM_STATUS_OK) {
 
     printf(">> ");
 
@@ -435,7 +369,7 @@ int interactive_loop () {
 
     else if (user_command == COMMAND_QUIT) {
 
-      status = STATUS_QUIT;
+      status = VM_STATUS_QUIT;
 
       printf("Bye!\n");
 
@@ -458,7 +392,7 @@ int interactive_loop () {
       status = fetch_execute(status);
 
       // if there is a problem, print out the status
-      if (status != STATUS_OK) {
+      if (status != VM_STATUS_OK) {
 
         print_status(status); 
 
@@ -482,7 +416,7 @@ int interactive_loop () {
     }
 
     // give a simple status (ok, quit, error, finished)
-    else if (user_command == COMMAND_PRINT_STATUS) {
+    else if (user_command == COMMAND_PRINT_VM_STATUS) {
 
       print_status(status);
 
@@ -496,7 +430,7 @@ int interactive_loop () {
     }
 
     // print numbered code lines with stringified opcode names
-    else if (user_command == COMMAND_PRINT_OP) {
+    else if (user_command == COMMAND_PRINT_VM_OP) {
 
       print_op();
 
@@ -627,7 +561,7 @@ int execute_instruction (Instruction instruction) {
   // look at various op code possibilities
   
   // load constant value
-  if (op == OP_LIT) {
+  if (op == VM_OP_LIT) {
 
     // load constant value into register 
     reg[r] = m;
@@ -635,11 +569,11 @@ int execute_instruction (Instruction instruction) {
   }
 
   // return from sub-procedure
-  else if (op == OP_RTN) {
+  else if (op == VM_OP_RTN) {
 
     // remove the current lexical level by setting
     // it to -1
-    for (int i = MAX_LEXI_LEVEL; i > 0; i--) {
+    for (int i = VM_MAX_LEXI_LEVEL; i > 0; i--) {
 
       // lexical level is occupied
       if (lex_levels[i] != -1) {
@@ -661,33 +595,33 @@ int execute_instruction (Instruction instruction) {
     // set base pointer to previous activation record
     base_pointer = stack[stack_pointer + 3];
 
-    // set PC to instruction after last OP_CAL 
+    // set PC to instruction after last VM_OP_CAL 
     program_counter = stack[stack_pointer + 4];
 
   }
 
   // load from offset m, l legigraphical levels down
-  else if (op == OP_LOD) {
+  else if (op == VM_OP_LOD) {
     
     reg[r] = stack[get_base(l, base_pointer) + m];
 
   }
 
   // store value at offset m, l lexigraphical levels down.
-  else if (op == OP_STO) {
+  else if (op == VM_OP_STO) {
 
     stack[get_base(l, base_pointer) + m] = reg[r];
 
   }
 
   // call sub-procedure
-  else if (op == OP_CAL) {
+  else if (op == VM_OP_CAL) {
 
     // check if we have room in the stack
-    if (stack_pointer + 4 >= MAX_STACK_HEIGHT) {
+    if (stack_pointer + 4 >= VM_MAX_STACK_HEIGHT) {
 
       // stack overflow
-      return STATUS_ERR;
+      return VM_STATUS_ERR;
 
     }
 
@@ -712,7 +646,7 @@ int execute_instruction (Instruction instruction) {
     // to keep track of printing later, we will check the lexical
     // level. find the first empty lexical level, and assign our base
     // pointer to that level
-    for (int i = 0; i < MAX_LEXI_LEVEL; i++) {
+    for (int i = 0; i < VM_MAX_LEXI_LEVEL; i++) {
 
       // lexical level not accessed
       if (lex_levels[i] == -1) {
@@ -721,11 +655,11 @@ int execute_instruction (Instruction instruction) {
         break;
 
       }
-      else if ( i == MAX_LEXI_LEVEL - 1) {
+      else if ( i == VM_MAX_LEXI_LEVEL - 1) {
 
         // we are attempting to create a new lexical scope outside
         // of the virtual machine settings. return an error.
-        return STATUS_ERR;
+        return VM_STATUS_ERR;
 
       }
 
@@ -737,35 +671,35 @@ int execute_instruction (Instruction instruction) {
   }
 
   // allocate m locals by incrementing stack pointer 
-  else if (op == OP_INC) {
+  else if (op == VM_OP_INC) {
 
     stack_pointer += m;
 
   }
 
   // change position of program counter to m 
-  else if (op == OP_JMP) {
+  else if (op == VM_OP_JMP) {
 
     program_counter = m;
 
   }
 
   // jump conditional. jump if reg[r] = 0
-  else if (op == OP_JPC) {
+  else if (op == VM_OP_JPC) {
 
     if (reg[r] == 0) {
 
       program_counter = m;
 
       // return to prevent PC from incrementing to m + 1
-      return STATUS_OK;
+      return VM_STATUS_OK;
 
     }
 
   }
 
   // io operations
-  else if (op == OP_SIO) {
+  else if (op == VM_OP_SIO) {
 
     // do multiple levels of decoding. check m
      
@@ -775,7 +709,7 @@ int execute_instruction (Instruction instruction) {
       // please note that this will print before a stack trace.
       // this makes sense because the instruction must execute
       // before it can be traced
-      printf(" OP_SIO > REG[%d] = %d\n", r, reg[r]);
+      printf(" VM_OP_SIO > REG[%d] = %d\n", r, reg[r]);
 
     }
     // allow user to put in a value for register
@@ -796,98 +730,98 @@ int execute_instruction (Instruction instruction) {
       base_pointer    = 0;
       stack_pointer   = 0;
 
-      return STATUS_FINISHED;
+      return VM_STATUS_FINISHED;
 
     } 
 
   }
 
   // negation
-  else if (op == OP_NEG) {
+  else if (op == VM_OP_NEG) {
 
     reg[r] = -(reg[l]);
 
   }
 
   // addition
-  else if (op == OP_ADD) {
+  else if (op == VM_OP_ADD) {
 
     reg[r] = reg[l] + reg[m];
 
   }
 
   // subtraction
-  else if (op == OP_SUB) {
+  else if (op == VM_OP_SUB) {
 
     reg[r] = reg[l] - reg[m];
 
   }
 
   // multiplication
-  else if (op == OP_MUL) {
+  else if (op == VM_OP_MUL) {
 
     reg[r] = reg[l] * reg[m];
 
   }
 
   // division
-  else if (op == OP_DIV) {
+  else if (op == VM_OP_DIV) {
 
     reg[r] = reg[l] / reg[m];
 
   }
 
   // check if odd
-  else if (op == OP_ODD) {
+  else if (op == VM_OP_ODD) {
 
     reg[r] = reg[l] % 2;
 
   }
 
   // modulo
-  else if (op == OP_MOD) {
+  else if (op == VM_OP_MOD) {
 
     reg[r] = reg[l] % reg[m];
 
   }
 
   // check equality
-  else if (op == OP_EQL) {
+  else if (op == VM_OP_EQL) {
 
     reg[r] = reg[l] == reg[m];
 
   }
 
   // check non-equality
-  else if (op == OP_NEQ) {
+  else if (op == VM_OP_NEQ) {
 
     reg[r] = reg[l] != reg[m];
 
   }
 
   // less than
-  else if (op == OP_LSS) {
+  else if (op == VM_OP_LSS) {
 
     reg[r] = reg[l] < reg[m];
 
   }
 
   // less than or equal to
-  else if (op == OP_LEQ) {
+  else if (op == VM_OP_LEQ) {
 
     reg[r] = reg[l] <= reg[m];
 
   }
 
   // greater than 
-  else if (op == OP_GTR) {
+  else if (op == VM_OP_GTR) {
 
     reg[r] = reg[l] > reg[m];
 
   }
 
   // greater than or equal to
-  else if (op == OP_GEQ) {
+  else if (op == VM_OP_GEQ) {
 
     reg[r] = reg[l] >= reg[m];
 
@@ -896,14 +830,15 @@ int execute_instruction (Instruction instruction) {
   // problem with instruction. not in ISA.
   else {
 
-    return STATUS_ERR;
+    return VM_STATUS_ERR;
 
   }
 
-  return STATUS_OK;
+  return VM_STATUS_OK;
 
 }
 
+/*
 // can be run through interactive mode
 void print_code () {
 
@@ -949,10 +884,12 @@ void print_code () {
   }
 
 }
+*/
 
+/*
 void print_op () {
 
-  printf("======================OP-CODES====================\n");
+  printf("======================VM_OP-CODES====================\n");
    
   // length of code register 
   int code_len = sizeof(code) / sizeof(code[0]);
@@ -980,7 +917,7 @@ void print_op () {
     // get stringified opcode name
     char *str_op;
 
-    str_op = op < 23 && op > 0 ? opcodes[op]: opcodes[OP_NUL];
+    str_op = op < 23 && op > 0 ? opcodes[op]: opcodes[VM_OP_NUL];
 
     // print out instruction with string name
     printf("%d %s %d %d %d", i, str_op, r, l, m );
@@ -1001,14 +938,16 @@ void print_op () {
   }
   
 }
+*/
 
+/*
 // runs the program and prints the stack trace
 int print_trace (int status) {
 
   // extra labels were added in addtion to the required ones per the rubric. 
   printf("ins  op   r   l   m      pc  bp  sp   stack values\n");
 
-  while (status == STATUS_OK) {
+  while (status == VM_STATUS_OK) {
 
     // locations of pipes based on lexical levels. initialize to 0
     int *pipes = (int *)calloc(stack_pointer + 1, sizeof(int));
@@ -1080,7 +1019,9 @@ int print_trace (int status) {
   return status;
 
 }
+*/
 
+/*
 // prints the full registers at any given time
 void print_registers() {
 
@@ -1115,14 +1056,16 @@ void print_registers() {
   printf("=====================FIN==========================\n");
 
 }
-
+*/
+/*
 void print_status (int status) {
 
   char *status_str = statuses[status];
 
-  printf("STATUS: %s\n", status_str);
+  printf("VM_STATUS: %s\n", status_str);
 
 }
+*/
 
 // per assignments recommendation, here is a helper function
 // to descend L lexigraphical levels.

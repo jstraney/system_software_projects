@@ -1,5 +1,3 @@
-////// MAIN_H //////
-
 //// Includes ////
 #ifndef STDIO_H
 #include <stdio.h>
@@ -14,6 +12,12 @@
 #ifndef STR_H
 #include <string.h>
 #define STR_H
+#endif
+
+#ifndef BOOL
+#define FALSE 0 
+#define TRUE  1
+#define BOOL
 #endif
 
 // token types. 
@@ -129,33 +133,46 @@ char *get_token_buffer_value();
 // reset the token buffer to '\0'
 void empty_token_buffer();
 
-typedef struct Symbol {
+// renamed to token since assignment 2: 
+typedef struct Token {
   char   *lexeme;
   int    token_type;
-  struct Symbol *next;
-} Symbol;
+  struct Token *next;
+} Token;
 
 //// Structures ////
 // take the buffer we've been appending to, as well as the token
 // returned by the function call stack. Then insert into the symbol table
-Symbol *Symbol_new(char *lexeme, int token_type);
+Token *Token_new(char *lexeme, int token_type);
 
-int insert_symbol(char *lexeme, int token_type);
+int insert_token(char *lexeme, int token_type);
 
-void print_symbol(Symbol symbol);
+void print_token(Token token);
+
+void print_token_table();
+
+void print_token_list();
+
+int analyzer_event_loop(FILE *file);
+
+int analyzer_entry(char *file_name);
+
+Token * get_token_table();
 
 //// Event Loop ////
 // provides a list of options for user.
+/*
 int interactive_loop(FILE *file);
 
 // runs the parser until finished
-int event_loop(FILE *file);
 
 int get_user_command();
-
 void print_code  (FILE *file);
 
 void print_status(int status);
 
+*/
+/*
 void print_prompt();
+*/
 

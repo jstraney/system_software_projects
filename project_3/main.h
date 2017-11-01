@@ -1,10 +1,14 @@
+// standard header files
+#ifndef STDH 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define STDH 
+#endif
 
-#ifndef VMACHINE
+#ifndef VM 
 #include "vm.h"
-#define VMACHINE
+#define VM 
 #endif
 
 #ifndef ANALYZER
@@ -12,15 +16,10 @@
 #define ANALYZER
 #endif
 
-typedef struct {
-  // I'm calling it type here just because in assignment 2, the
-  // tokens were also of different 'types'
-  int  type;
-  char name [10];
-  int  val;
-  int  level;
-  int  addr;
+#ifndef GENERATOR 
+#include "generator.h"
+#define GENERATOR 
+#endif
 
-} Symbol;
 
-Symbol_insert(Symbol symbol)
+

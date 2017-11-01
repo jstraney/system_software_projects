@@ -3,58 +3,74 @@
 # define  HEADERS
 # endif
 
-#define FALSE 0
-#define TRUE  1 
-
-#define STATUS_OK   0
-#define STATUS_ERR  1 
-
-#define MAX_SYMBOL_TABLE_SIZE
+#define DRIVER_STATUS_OK   0
+#define DRIVER_STATUS_ERR  1 
 
 int main (int argc, char * argv[]) {
+
+  int status = DRIVER_STATUS_OK;
 
   int print_list     = 0;
   int print_assembly = 0;
   int print_trace    = 0;
 
+  char* file_name;
+
   // no more than 4 arguments supported
   if (argc > 4) {
 
     // throw error
-    return STATUS_ERR;
+    return DRIVER_STATUS_ERR;
 
   }
-  else {
 
-    for (int i = 1; i <= argc; i++) {
+  for (int i = 1; i <= argc; i++) {
 
-      char *flag = argv[i-1];
+    char *arg = argv[i-1];
 
-      if (strcmp(flag, "-l") == 0) {
+    if (strcmp(arg, "-l") == 0) {
 
-        print_list = TRUE;
+      print_list = TRUE;
 
-      }
-      else if (strcmp(flag, "-a") == 0){
+    }
+    else if (strcmp(arg, "-a") == 0){
 
-        print_assembly = TRUE;
+      print_assembly = TRUE;
 
-      }
-      else if (strcmp(flag, "-v") == 0){
+    }
+    else if (strcmp(arg, "-v") == 0){
 
-        print_trace = TRUE;
+      print_trace = TRUE;
 
-      }
+    }
+    else {
+
+      // this must be the code file name!
+      file_name = arg;
 
     }
 
   }
 
-  return STATUS_OK;
+  // submit the filename argument to analyzer(and parser)
+  analyzer_entry(file_name);
 
-}
+  // get head from token table
+  Token *head = get_token_table();
+
+  if (print_list) {
+
+    print_token_table();
+
+  }
+
+  if (print_assembly) {
+
+  }
+
+  // run machine code on VM
 
 
-int read_lexeme_table (Token head) {
+  return status;
 
 }
