@@ -1,16 +1,73 @@
-././const_expects_num.p
-././expected_becomes.p
-././expected_comma.p
-././expected_ident.p
-././expected_right_paren.p
-././expected_semicolon.p
-././expects_do.p
-././expects_equals.p
-././expects_then.p
-././expression_start.p
-././invalid_assign.p
-././no_end.p
-././no_period.p
-././no_rel.p
-././term_start.p
-././und_ident.p
+var x;
+x := 12
+/* ERR CONSTANT EXPECTS NUMBER */
+const foo = x;
+.
+
+var x;
+/* ERR EXPECTS BECOMES */
+x = 12
+.
+
+/* ERR EXPECTS COMMA */
+var x y z;
+.
+/* ERR EXPECTED IDENT */
+var 12;
+.
+
+var x;
+/* ERR NO RIGHT PAREN */
+x := (12 
+
+/*ERR NO SEMICOLON*/
+var x
+
+var x;
+x := 10
+/* NO DO */
+while x > 0
+  x := x - 1;
+.
+/* ERR CONST USES = */
+const z := 12;
+
+var x;
+x:=8
+/*ERR NO THEN*/
+if x > 1
+  x := 1;
+
+var x;
+/* INVALID EXPRESSION */
+x := ^^^^
+
+const z = 12;
+/* CANNOT ASSIGN CONSTANT */
+z := 13
+
+var x;
+begin
+  x := 12;
+/*EXPECTED END*/
+
+
+var x;
+begin
+  x:=12;
+end
+/*EXPECTED PERIOD*/
+
+var x;
+x := 12
+/*EXPECTS RELATIONAL OPERATOR*/
+if x foo 12 then
+  x := foo;
+
+var x;
+/*ERR BAD TERM*/
+x := ( x + (^ * 12))
+
+var x;
+/* y is undefined!*/
+y := 12

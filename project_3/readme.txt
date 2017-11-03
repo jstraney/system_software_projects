@@ -1,11 +1,12 @@
 ################################################################################
 ### parser ### code ### generator ##############################################
 ################################################################################
+
 # by Frank Volk and Jeffrey Straney
 
 # for assignment 2, we actually built a parse tree that lexed as it parsed
 # (though we had not implemented any Symbol table logic, or grammar errors)
-# for this reason, the lexer and parser are bundled up in analyzer.c
+# for this reason, the lexer AND PARSER are bundled up in analyzer.c
 #
 # the VM and Lexer have slight changes since they were done (commenting out
 # printing to make results more in line with the rubric requirements)
@@ -34,3 +35,4 @@ gcc *.c -o main
 
 # this will basically just call
 echo ./example.p > ./example_IO/in.txt && ../main -l -a -v ./run_example.sh > ./example_IO/out.txt
+
