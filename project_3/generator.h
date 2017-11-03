@@ -14,31 +14,42 @@
 #define GENERATOR_STATUS_OK      0
 #define GENERATOR_STATUS_ERR     1 
 
-// max symbol table size. adjust as needed
-#define MAX_SYMBOL_TABLE_SIZE 2000
 
 // hash function used for symbol table
-int hash(char *str);
-
-typedef struct {
-  int  type;
-  char name [10];
-  int  val;
-  int  level;
-  int  addr;
-
-} Symbol;
-
-
 int generator_entry(Token *head);
 
-int gen(int op, int l, int m, int reg);
+int gen(int op, int reg, int l, int m);
 
-int Symbol_insert(Symbol symbol);
-Symbol find(char *ident);
+void gen_inc_lex_lev();
 
-int symboltype ();
-int symbollev ();
-int symboladdress();
+void gen_dec_lex_lev();
 
-int write_assembly_to_file(char *machine_code);
+// returns lexical level maintained by generator
+int gen_get_lex_level ();
+
+int gen_get_bp_offset ();
+
+void gen_inc_bp_offset ();
+
+void gen_dec_bp_offset ();
+
+int gen_get_last_reg();
+
+void gen_inc_reg_offset();
+
+int gen_get_reg_offset();
+
+// should only really have to increase bp for allocation
+// (once variables are allocated, their address can be retrieved
+// by symbol)
+void gen_inc_bp_offset ();
+
+// get's the generators abstraction of PC
+int gen_get_pc ();
+
+// allows an instructions m value to be changed. (only case
+// for modifying instructions seems to be JPC at this time)
+void gen_alt_instr_m (int instr_addr, int instr_m);
+
+int write_assembly_to_file(int is_verbose);
+

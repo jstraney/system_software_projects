@@ -11,7 +11,7 @@
 // these are just the starting values, actual stack pointer, base pointer etc.
 // are defined lower in code.
 #define SP 0 
-#define BP 1 
+#define BP 1
 #define PC 0 
 #define IR 0 
 
@@ -95,10 +95,14 @@ int Instruction_empty (Instruction this);
 
 int Instruction_halt (Instruction this);
 
-/*
-// prints status of the VM (ok, error, quit, finished)
-void print_status(int status);
+// returns length of num in digits
+int num_length(int n);
 
+char * Instruction_to_string(Instruction instruction);
+// prints status of the VM (ok, error, quit, finished)
+void vm_print_status(int status);
+
+/*
 // prompt for interactive mode
 void print_prompt();
 
@@ -108,10 +112,12 @@ void print_code();
 // prints code with stringified op names 
 void print_op();
 
+*/
 // prints full trace. returns status, as the
 // program is run as a side-effect
-int print_trace();
+int vm_print_trace();
 
+/*
 // print SP, BP, PC, R
 void print_registers();
 
@@ -120,11 +126,13 @@ void print_registers();
 // fetches character from input, returns integer flag
 int get_user_command();
 */
-int vm_entry(FILE *fp);
+int vm_entry(char *file_name, int is_verbose);
 
 // calls vm proceedures
 int vm_event_loop();
 
+// takes int of opcode and returns string (used to debug code gen)
+char * get_str_opcode(int opcode);
 /*
 // calls vm procedures in an interactive context
 int interactive_loop();

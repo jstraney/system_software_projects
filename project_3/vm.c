@@ -93,8 +93,52 @@ int Instruction_halt (Instruction this) {
 
 }
 
+// helper function to find length of number in digits
+int num_length (int num) {
+
+  int length = 0;
+
+  while (num) {
+
+    length++;
+
+    num /= 10;
+
+  }
+
+  return length;
+
+}
+
+
+
+char *Instruction_to_string (Instruction instruction) {
+
+  // todo: put instruction string generation in a separate function to
+  // be called on the write_assembly function
+  int op, r, l, m;
+
+  op = instruction.op;
+  r  = instruction.r;
+  l  = instruction.l;
+  m  = instruction.m;
+  
+  // length of numbers plus 3 spaces, newline and \0
+  int instruction_len = num_length(op) + num_length(r) + num_length(l) + num_length(m) + 5;
+
+  // string should be length of instruction
+  char *instruction_str = malloc(sizeof(char) * instruction_len);
+
+  // print string to instruction character buffer
+  sprintf(instruction_str, "%d %d %d %d\n", op, r, l, m);   
+
+  return instruction_str;
+
+}
+
 // create stack. initialize to 0
 int stack_pointer = SP;
+
 int stack[VM_MAX_STACK_HEIGHT] = {0};
 
 // I am under the assumption that 'code length' refers to the number of
@@ -111,7 +155,7 @@ int reg[VM_REG_FILE_SIZE] = {0};
 int base_pointer = BP;
 
 
-int vm_entry(FILE *fp) {
+int vm_entry(char *file_name, int is_verbose) {
 
   // status starts off ok
   int status = VM_STATUS_OK;
@@ -172,9 +216,35 @@ int vm_entry(FILE *fp) {
   }
   */
 
+  // read file from file name
+  FILE *fp;
+
+  fp = fopen(file_name, "r");
+
+  if (fp == NULL) {
+
+    printf("vm cannot find assembly file!");
+
+    return VM_STATUS_ERR;
+
+  }
+
   read_instructions_from_file(fp);
 
-  status = vm_event_loop();
+  if (is_verbose) {
+
+    status = vm_print_trace(status);
+
+    vm_print_status(status);
+
+  }
+  else {
+
+    status = vm_event_loop(status);
+
+    vm_print_status(status);
+
+  }
 
   fclose(fp);
 
@@ -716,7 +786,7 @@ int execute_instruction (Instruction instruction) {
     else if (m == 2) {
 
       // get user input for register r
-      printf("enter a value for register %d", r);
+      printf("enter a value for register %d >> ", r);
       int value;
       scanf(" %d", &value);
       reg[r] = value;
@@ -838,6 +908,12 @@ int execute_instruction (Instruction instruction) {
 
 }
 
+char *get_str_opcode(int opcode) {
+
+  return opcodes[opcode]; 
+
+}
+
 /*
 // can be run through interactive mode
 void print_code () {
@@ -940,9 +1016,10 @@ void print_op () {
 }
 */
 
-/*
 // runs the program and prints the stack trace
-int print_trace (int status) {
+int vm_print_trace (int status) {
+
+  printf("Virtual Machine Trace:\n");
 
   // extra labels were added in addtion to the required ones per the rubric. 
   printf("ins  op   r   l   m      pc  bp  sp   stack values\n");
@@ -953,7 +1030,7 @@ int print_trace (int status) {
     int *pipes = (int *)calloc(stack_pointer + 1, sizeof(int));
 
     // set the locations of pipes
-    for (int i = 0; i < MAX_LEXI_LEVEL; i++) {
+    for (int i = 0; i < VM_MAX_LEXI_LEVEL; i++) {
 
       if (lex_levels[i] == -1) {
 
@@ -964,6 +1041,8 @@ int print_trace (int status) {
 
       // start of lexical level in stack.
       int lex_start = lex_levels[i];
+
+      
 
       // assert index i to say 'print a pipe here' 
       *(pipes + lex_start) = 1; 
@@ -1019,7 +1098,6 @@ int print_trace (int status) {
   return status;
 
 }
-*/
 
 /*
 // prints the full registers at any given time
@@ -1057,15 +1135,14 @@ void print_registers() {
 
 }
 */
-/*
-void print_status (int status) {
 
-  char *status_str = statuses[status];
+void vm_print_status (int status) {
 
-  printf("VM_STATUS: %s\n", status_str);
+  char *status_str = vm_statuses[status];
+
+  printf("VM STATUS: %s\n", status_str);
 
 }
-*/
 
 // per assignments recommendation, here is a helper function
 // to descend L lexigraphical levels.

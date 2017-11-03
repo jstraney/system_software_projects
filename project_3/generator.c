@@ -16,54 +16,63 @@
 #define GENERATOR
 #endif
 
-Symbol symbol_table[MAX_SYMBOL_TABLE_SIZE];
-
 // lexical level tracked by the generator. used when generating assembly with
 // parse tree
 int gen_lex_level = 0;
 
-// generators tracking of pc. should increase linearly
-int gen_pc = 0;
+// generators abstraction of program counter for incrementing
+int gen_pc = PC;
+
+// bp offset from lexigraphical level (referred to as M in some commands)
+// for example, when doing a STO instruction, we need to know the offset
+// from the start of the activation record.
+int gen_bp_offset = 0;
+
+// okay. was not really sure how to handle register management, but am using
+// a "round robin" approach which basically cycles through. I achieve this
+// with modular arithmetic
+int gen_reg_offset = IR;
+
+void gen_inc_reg_offset () {
+
+  gen_reg_offset++;
+
+}
+
+int gen_get_last_reg () {
+
+  // return last reg address used
+  return (gen_reg_offset - 1) % VM_REG_FILE_SIZE;
+
+}
+
+int gen_get_reg_offset () {
+
+  // remember, the offset just keeps increasing and is modded
+  // to rotate through the register as needed
+  return (gen_reg_offset % VM_REG_FILE_SIZE);
+
+}
+
+int gen_get_bp_offset () {
+
+  return gen_bp_offset;
+
+}
+
+// offset increases when we create space for a variable
+void gen_inc_bp_offset () {
+
+  gen_bp_offset++;
+
+}
 
 // array of string codes to be written to a file
 char *gen_code[VM_MAX_CODE_LENGTH];
 
-// hash function to key the unique symbol in the table
-// we used this academic page as insperation to help randomize the result
-// http://www.cs.yale.edu/homes/aspnes/pinewiki/C(2f)HashTables.html?highlight=%28CategoryAlgorithmNotes%29
-int hash(char *str) {
-
-  // index of string being hashed
-  int i = 0;
-
-  // start at beginning of string
-  int c = str[i];
-
-  // starting with an odd, prime constant
-  int result = 0;
-
-  do {
-
-    // multiply the result by a prime and add c
-    result = ((result * 31) + c)  % MAX_SYMBOL_TABLE_SIZE;
-
-    // go to next character
-    c = str[++i];
-
-    // exit on null
-  } while (c != '\0');
-
-  // return the hash
-  return result; 
-
-}
-
-// lexical level in the generator
-int generator_lexi_level = 0;
-
 Instruction code[VM_MAX_CODE_LENGTH];
 
-int write_assembly_to_file (char *code) {
+int write_assembly_to_file (int is_verbose) {
 
   FILE *fp;
 
@@ -71,16 +80,45 @@ int write_assembly_to_file (char *code) {
 
   if (fp == NULL) {
 
-    printf("something went wrong writing assembly code");
+    printf("GEN STATUS: could not open assembly.code for writing\n");
+
+    return GENERATOR_STATUS_OK;
 
   }
 
-  // fwrite or some equivalent...
-  // fwrite(code);
+  // print header
+  if (is_verbose) {
+
+    printf("Assembly Output\n");
+
+  }
+
+  for (int i = 0; i < gen_pc; i++) {
+
+    Instruction instruction;
+
+    instruction = code[i];
+
+    char * instr_str = Instruction_to_string(instruction);
+
+    if (is_verbose) {
+
+      // not the actual output of file. just a human friendly print
+      printf("%s %d %d %d\n", get_str_opcode(instruction.op), instruction.r, instruction.l, instruction.m);
+
+    }
+    
+    fwrite(instr_str, sizeof(char), strlen(instr_str), fp);
+
+  }
+
+  printf("\n");
 
   fclose(fp);
 
-  return 0;
+  printf("GEN STATUS: finished writing to assembly.code\n");
+
+  return GENERATOR_STATUS_OK;
 
 }
 
@@ -88,65 +126,62 @@ void gen_inc_lex_lev() {
 
   gen_lex_level++;
 
+  // allocate space for return value, dynaic link, static link, return address.
+  gen_bp_offset += 4;
+
 }
 
 void gen_dec_lex_lev() {
 
   gen_lex_level--;
 
+
 }
 
-int Symbol_insert(Symbol symbol) {
+int gen_get_lex_level () {
 
-  // derive hash from the name
-  int key = hash(symbol.name);
+  return gen_lex_level;
 
-  // put into the symbol
-  symbol_table[key] = symbol;
+}
 
+void gen_print_inst (char * inst) {
+
+  // printf("new inst! %s\n", inst);
+
+}
+
+int gen(int op, int reg, int l, int m) {
+
+  // put new instruction in code
+  code[gen_pc++] = Instruction_new(op, reg, l, m);
+
+  // printf("%s: %d %d %d\n", get_str_opcode(op), reg, l, m);
+
+  // gen_print_inst(instruction_str);
+
+  // insert strin instruction in code array
+  // gen_code[gen_pc++] = instruction_str;
 
   return GENERATOR_STATUS_OK;
 
 }
 
-Symbol find(char *ident) {
+// allows the modification of an instruction's M value
+void gen_alt_instr_m (int instr_addr, int instr_m) {
 
-  int key = hash(ident);
+  code[instr_addr].m = instr_m;
 
-  return symbol_table[key];
-
-}
-
-// helper function to find length of number in digits
-int num_length (int num) {
-
-  int length = 1;
-
-  while ((num /= 10) > 0) {
-
-    length++;
-
-  }
-
-  return length;
+  // testing only
+  // Instruction instr = code[instr_addr];
+  // printf("changedjpc %d at %d\n", instr.op, instr_addr);
+  // printf("%s: %d %d %d\n", get_str_opcode(instr.op), instr.r, instr.l, instr.m);
 
 }
 
-int gen(int op, int l, int m, int reg) {
+// used in jump commands and jump conditionals
+int gen_get_pc () {
 
-  // length of numbers plus 3 spaces, newline and \0
-  int instruction_len = num_length(op) + num_length(l) + num_length(m) + 5;
-
-  // string should be length of instruction
-  char instruction_str[instruction_len];
-
-  // print string to instruction character buffer
-  sprintf(instruction_str, "%d %d %d\n", op, l, m);   
-
-  // insert strin instruction in code array
-  gen_code[gen_pc++] = instruction_str;
-
-  return 0;
+  return gen_pc;
 
 }
 

@@ -26,7 +26,7 @@ A)    aa N)    nn A)    aa L)llllll    Y)    Z)zzzzzz E)eeeeee R)    rr
 // this assignment challenging. In otherwords, the tokens are lexically analyzed
 // as they are parsed, which are then generated into code
 //
-// I have emailed Dr. Montagne who has advised us
+// I have emailed Dr. Montane who has advised us
 // to simply have the code generator read the lexeme table (which should be
 // syntactically valid already by nature of being implemented in a tree)
 //
@@ -42,6 +42,11 @@ A)    aa N)    nn A)    aa L)llllll    Y)    Z)zzzzzz E)eeeeee R)    rr
 #define GENERATOR
 #endif
 
+#ifndef VM 
+#include "vm.h"
+#define VM 
+#endif
+
 #define ANALYZER_OPTION_QUIT      0
 #define ANALYZER_OPTION_RUN       1
 #define ANALYZER_OPTION_PRINT     2 
@@ -51,37 +56,47 @@ A)    aa N)    nn A)    aa L)llllll    Y)    Z)zzzzzz E)eeeeee R)    rr
 
 // we will make our errors go in the opposite direction so they
 // are not confused with symbol enumerations
-#define ANALYZER_NO_ERR               0
-#define ANALYZER_ERR_INVALID_TOKEN   -1 
-#define ANALYZER_ERR_IDENT_START     -2 
-#define ANALYZER_ERR_NUM_TOO_LONG    -3 
-#define ANALYZER_ERR_IDENT_TOO_LONG  -4 
-#define ANALYZER_ERR_NEEDS_BECOMES   -5 
-#define ANALYZER_ERR_EQUAL_THEN_NUM  -6 
-#define ANALYZER_ERR_IDENT_NEEDED    -7 
-#define ANALYZER_ERR_NO_SEMICOLON    -8 
-#define ANALYZER_ERR_PROC_SYMBOL     -9 
-#define ANALYZER_ERR_NO_PERIOD      -10 
-#define ANALYZER_ERR_UND_IDENT      -11 
-#define ANALYZER_ERR_PROC_CONST_ASN -12 
-#define ANALYZER_ERR_NO_ASN         -13 
-#define ANALYZER_ERR_MEANING_IDENT  -14 
-#define ANALYZER_ERR_NO_THEN        -15 
-#define ANALYZER_ERR_NO_DO          -16 
-#define ANALYZER_ERR_NO_REL         -17 
-#define ANALYZER_ERR_FORBIDDEN_PROC -18 
-#define ANALYZER_ERR_NO_RIGHT_PAREN -19 
-#define ANALYZER_ERR_INVALID_FACTOR -20 
+#define ANALYZER_VALID                  0
+#define ANALYZER_NO_ERR                -1 
+#define ANALYZER_ERR_IDENT_START       -2 
+#define ANALYZER_ERR_NUM_TOO_LONG      -3 
+#define ANALYZER_ERR_IDENT_TOO_LONG    -4 
+#define ANALYZER_ERR_NEEDS_BECOMES     -5 
+#define ANALYZER_ERR_EQUAL_THEN_NUM    -6 
+#define ANALYZER_ERR_IDENT_NEEDED      -7 
+#define ANALYZER_ERR_NO_SEMICOLON      -8 
+#define ANALYZER_ERR_PROC_SYMBOL       -9 
+#define ANALYZER_ERR_NO_PERIOD        -10 
+#define ANALYZER_ERR_UND_IDENT        -11 
+#define ANALYZER_ERR_PROC_CONST_ASN   -12 
+#define ANALYZER_ERR_NO_ASN           -13 
+#define ANALYZER_ERR_MEANING_IDENT    -14 
+#define ANALYZER_ERR_NO_THEN          -15 
+#define ANALYZER_ERR_NO_DO            -16 
+#define ANALYZER_ERR_NO_REL           -17 
+#define ANALYZER_ERR_FORBIDDEN_PROC   -18 
+#define ANALYZER_ERR_NO_RIGHT_PAREN   -19 
+#define ANALYZER_ERR_INVALID_FACTOR   -20 
+#define ANALYZER_ERR_INVALID_TOKEN    -21 
+#define ANALYZER_ERR_NO_EQUAL         -22 
+#define ANALYZER_ERR_NO_COMMA         -23 
+#define ANALYZER_ERR_EXPRESSION_START -24 
+#define ANALYZER_ERR_TERM_START       -25 
+#define ANALYZER_ERR_NO_END           -26 
+#define ANALYZER_ERR_BAD_ASSIGN       -27 
+#define ANALYZER_ERR_BAD_CONST        -28 
+#define ANALYZER_ERR_INVALID_READ     -29 
+#define ANALYZER_ERR_INVALID_WRITE    -30 
 
 #define ANALYZER_STATUS_QUIT         5 
 #define ANALYZER_STATUS_FINISHED     6 
 
 char *analyzer_statuses[] = {
   "scanning and parsing is finished",
+  "unrecognized token",
   "identifier must start with a letter",
   "number too long (max length of 5)",
   "identifier is too long (max length of 11)",
-  "unrecognized token",
   "expected := in var assignment",
   "number required after const assignment",
   "identifier expected",
@@ -94,10 +109,20 @@ char *analyzer_statuses[] = {
   "meaningless variable or constant",
   "expected then",
   "expected do",
-  "expected relational operator (< > <= >= == <>)",
+  "expected relational operator (< > <= >= = or <>)",
   "expression cannot contain procedure identifier",
   "right parentheses missing",
   "invalid factor",
+  "unrecognized token",
+  "constant expects = ",
+  "expected comma",
+  "invalid start of expression",
+  "invalid start of term",
+  "end expected after begin statement",
+  "invalid assignment. must assign to var only (const and proc assignment forbidden)",
+  "invalid constant. symbol already used.",
+  "invalid read. variable is undefined",
+  "invalid write. variable is undefined"
 };
 
 #define ANALYZER_MAX_TOKEN_SIZE 11
@@ -122,8 +147,92 @@ char *token_buffer;
 
 int buffer_index = 0;
 
-// first symbol in the program
+// hash function to key the unique symbol in the table
+// we used this academic page as inspiration to help randomize the result. could have used sidechaining
+// to help handle collisions but did not have time. will most likely not produce collisions unless many
+// long, exotic variables are used.
+// http://www.cs.yale.edu/homes/aspnes/pinewiki/C(2f)HashTables.html?highlight=%28CategoryAlgorithmNotes%29
+int hash(char *str) {
+
+  // index of string being hashed
+  int i = 0;
+
+  // start at beginning of string
+  int c = str[i];
+
+  // starting with an odd, prime constant
+  int result = 0;
+
+  do {
+
+    // multiply the result by a prime and add c
+    result = ((result * 31) + c)  % MAX_SYMBOL_TABLE_SIZE;
+
+    // go to next character
+    c = str[++i];
+
+    // exit on null
+  } while (c != '\0');
+
+  // return the hash
+  return result; 
+
+}
+
+Symbol Symbol_new (int  type,  char *name,  int  val, int addr) {
+
+  Symbol this;
+
+  this.type  = type;
+  this.name  = name;
+  this.val   = val;
+  this.level = gen_get_lex_level();
+  this.addr  = addr;
+
+  return this;
+
+}
+
+int Symbol_insert(Symbol symbol) {
+
+  // derive hash from the name
+  int key = hash(symbol.name);
+
+  // put into the symbol
+  symbol_table[key] = symbol;
+
+  // debugging
+  // printf("new symbol inserted\n");
+  // print_symbol(symbol);
+
+  return GENERATOR_STATUS_OK;
+
+}
+
+Symbol find(char *ident) {
+
+  int key = hash(ident);
+
+  return symbol_table[key];
+
+}
+
+void print_symbol(Symbol symbol) {
+
+  int type    = symbol.type;
+  char * name = symbol.name;
+  int val     = symbol.val;
+  int level   = symbol.level;
+  int address = symbol.addr;
+
+  printf("type : %d  name: %s  value: %d level: %d addres: %d\n", type, name, val, level, address);
+
+}
+
+// first token in the program
 Token *head;
+// last token. allows for O(1) lookup of last token
+Token *tail; 
 
 Token *Token_new(char *lexeme, int token_type) {
 
@@ -159,7 +268,16 @@ int insert_token (char *lexeme, int token_type) {
   // set the vacant 'next' to symbol
   current->next = token;
 
-  return ANALYZER_NO_ERR;
+  // set tail pointer to the token for constant lookup time
+  tail->next = token;
+
+  return ANALYZER_VALID;
+
+}
+
+Token get_last_token () {
+
+  return *(tail->next);
 
 }
 
@@ -304,14 +422,16 @@ void empty_token_buffer() {
 int analyzer_entry (char *file_name) {
 
   // status starts off ok
-  int status = ANALYZER_NO_ERR;
+  int status = ANALYZER_VALID;
 
   // don't forget to allocate an extra space for '\0'
   token_buffer = (char *)calloc(ANALYZER_MAX_TOKEN_SIZE + 1, sizeof (char));
 
   // create an empty start symbol
   head = Token_new("", nulsym);
-
+  tail = Token_new("", nulsym);
+  // always point to end of list
+  tail->next = head;
   /*
   // interactive or normal mode
   int mode;
@@ -339,7 +459,7 @@ int analyzer_entry (char *file_name) {
 
     printf("the lexical parser requires a filename, or the -i flag followed by a file name.\n");
 
-    status = ANALYZER_ERR_INVALID_TOKEN;
+    status = ANALYZER_NO_ERR;
 
     return status;
 
@@ -478,7 +598,7 @@ int get_user_command () {
 // run the vm through interactive mode
 int interactive_loop (FILE *file) {
 
-  int status = ANALYZER_NO_ERR;
+  int status = ANALYZER_VALID;
 
   // print the prompt once on start up. print again
   // if the COMMAND_HELP is issued 
@@ -487,7 +607,7 @@ int interactive_loop (FILE *file) {
   // integer flag COMMAND_<command>
   int user_command;
 
-  while (status == ANALYZER_NO_ERR) {
+  while (status == ANALYZER_VALID) {
 
     printf(">> ");
 
@@ -610,7 +730,7 @@ int is_reserved_word (char *lexeme) {
 // returns: integer flag to indicate status
 int is_program (FILE *fp) {
 
-  // our lexical parser loads the file into a character buffer,
+  // our lexical-analyzer/parser loads the file into a character buffer,
   // to easily manipulate pointer location using local function
   // variables.
 
@@ -637,20 +757,16 @@ int is_program (FILE *fp) {
 
   *offset = 0;
 
-  int status = ANALYZER_NO_ERR;
+  int status = ANALYZER_VALID;
 
-  while(status == ANALYZER_NO_ERR) { 
+  while(status == ANALYZER_VALID) { 
     
     // must have a block
     status = is_block(file_text, offset);
 
     int halt;
 
-    int period;
-
-    period = is_periodsym(file_text, offset);
-    // and must terminate with a period.
-    halt = (status == ANALYZER_NO_ERR &&  period == ANALYZER_NO_ERR);
+    halt = (status != ANALYZER_VALID);
 
     if (halt) {
 
@@ -660,16 +776,38 @@ int is_program (FILE *fp) {
      
   }
 
+  trim(file_text, offset);
+
+  if (status == ANALYZER_NO_ERR) {
+
+    status = is_periodsym(file_text, offset);
+
+    if (status != ANALYZER_VALID) {
+
+      status = ANALYZER_ERR_NO_PERIOD;
+
+    }
+
+  }
+
   free(file_text);
 
   free(offset);
 
+  // add SIO command if analyzer valid
+  if (status == ANALYZER_VALID) {
+
+    // properly halt program (we're assuming not to generate command if
+    // period is not provided).
+    gen(VM_OP_SIO, 0, 0, 3);
+
+  }
+
   // negative statuses are errors. 0 is no error
   if (status <= 0) {
 
-    print_token_table();
     // flip the status to get the error code
-    printf("%s\n", analyzer_statuses[-status]);
+    printf("LEXER/PARSER STATUS:%s\n\n", analyzer_statuses[-status]);
 
   }
 
@@ -681,20 +819,13 @@ int is_block (char *file_text, int *offset) {
 
   int status;
 
-  // create jump instruction
-  // gen(VM_OP_JMP, 0, 4);
-
   // if any status besides no error is returned, the process halts
   status = is_constdec (file_text, offset); 
-  status == ANALYZER_NO_ERR || (status = is_vardec   (file_text, offset));
-  status == ANALYZER_NO_ERR || (status = is_procdec  (file_text, offset));
-  status == ANALYZER_NO_ERR || (status = is_statement (file_text, offset));
-
-  if (status == ANALYZER_ERR_NEEDS_BECOMES) {
-
-    printf("THEREFYOU GO\n");
-
-  }
+  // if the analyzer is valid or returned error, return from block procedure. if it was NO_ERR, simply
+  // continue and see what kind of block it is. repeat for each block pattern
+  ((status == ANALYZER_VALID || status < ANALYZER_NO_ERR))|| (status = is_vardec   (file_text, offset));
+  ((status == ANALYZER_VALID || status < ANALYZER_NO_ERR))|| (status = is_procdec  (file_text, offset));
+  ((status == ANALYZER_VALID || status < ANALYZER_NO_ERR))|| (status = is_statement (file_text, offset));
 
   return status;
 
@@ -706,7 +837,7 @@ int is_constdec (char *file_text, int *offset) {
 
   token = is_constsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
     // no error, perse as it could still be a vardec or some
     // other valid expression
@@ -720,10 +851,22 @@ int is_constdec (char *file_text, int *offset) {
 
   trim(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
     // already used 'const'. must be a valid token
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_ERR_IDENT_NEEDED;
+
+  }
+
+  Token constant = get_last_token();
+
+  // check if constant lexeme is used in symbol table
+  Symbol existing_const = find(constant.lexeme);
+
+  // the symbol should not exist (even as a constant!)
+  if (existing_const.name != NULL) {
+
+    return ANALYZER_ERR_BAD_CONST;
 
   }
 
@@ -731,9 +874,9 @@ int is_constdec (char *file_text, int *offset) {
   
   trim(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_ERR_NO_EQUAL;
     
   }
 
@@ -741,11 +884,39 @@ int is_constdec (char *file_text, int *offset) {
 
   trim(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_ERR_EQUAL_THEN_NUM;
 
   }
+
+  Token number = get_last_token();
+
+  // get constant integer value from string
+  int const_value  = atoi(number.lexeme);
+
+  // put constant into the symbol table
+  Symbol const_sym = Symbol_new(const_ident, constant.lexeme, const_value, gen_get_bp_offset());
+
+  // put symbol into the symbol table
+  Symbol_insert(const_sym);
+
+  // increase gen's abstraction of base_pointer
+  gen_inc_bp_offset();
+
+  // increase room for constant to be stored in memory
+  gen(VM_OP_INC, 0, 0, 1);
+
+  // get current register. note that due to the nature of the constant
+  // assignment, we can write over the register if we are making multiple
+  // constant assignments (no need to call gen_inc_reg_offset)
+  int const_reg = gen_get_reg_offset();
+
+  // create code command to load immediate value into register
+  gen(VM_OP_LIT, const_reg, 0, const_value);
+  
+  //  get register with immediate value and store in stack 
+  gen(VM_OP_STO, const_reg, const_sym.level, const_sym.addr);
 
   // optionally check for commas
   token = is_commasym(file_text, offset);
@@ -753,15 +924,28 @@ int is_constdec (char *file_text, int *offset) {
   trim(file_text, offset);
 
   // loop while we have a comma followed by identifier
-  while (token == commasym) {
+  while (token == ANALYZER_VALID) {
 
     token = is_identsym(file_text, offset);
 
     trim(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR) {
+    if (token != ANALYZER_VALID) {
 
-      return ANALYZER_ERR_INVALID_TOKEN;
+      return ANALYZER_ERR_IDENT_NEEDED;
+
+    }
+
+    // get the constant token recently lexed
+    constant = get_last_token();
+
+    // look for existing constant. re-using the variable above
+    existing_const = find(constant.lexeme);
+
+    if (existing_const.name != NULL) {
+
+      // constant lexeme cannot exist already!
+      return ANALYZER_ERR_BAD_CONST;
 
     }
 
@@ -769,9 +953,9 @@ int is_constdec (char *file_text, int *offset) {
     
     trim(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR) {
+    if (token != ANALYZER_VALID) {
 
-      return ANALYZER_ERR_INVALID_TOKEN;
+      return ANALYZER_NO_ERR;
 
     }
 
@@ -779,12 +963,32 @@ int is_constdec (char *file_text, int *offset) {
 
     trim(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR) {
+    if (token != ANALYZER_VALID) {
 
-      return ANALYZER_ERR_INVALID_TOKEN;
+      return token;
 
     }
 
+    // fetch the last_token into our number token
+    number = get_last_token();
+
+    const_value = atoi(number.lexeme);
+
+    // lexeme not used! produce a symbol
+    const_sym = Symbol_new(const_ident, constant.lexeme, const_value, gen_get_bp_offset()); 
+
+    Symbol_insert(const_sym);
+
+    gen_inc_bp_offset();
+
+    // increase space for constant
+    gen(VM_OP_INC, 0, 0, 1);
+
+    int const_reg = gen_get_reg_offset();
+
+    gen(VM_OP_LIT, const_reg, 0, const_value);
+
+    gen(VM_OP_STO, const_reg, const_sym.level, const_sym.addr);
 
     token = is_commasym(file_text, offset);
 
@@ -794,16 +998,16 @@ int is_constdec (char *file_text, int *offset) {
 
   token = is_semicolonsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return token;
+    return ANALYZER_ERR_NO_SEMICOLON;
 
   }
 
   trim(file_text, offset);
 
   // no problem
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
@@ -813,22 +1017,34 @@ int is_vardec (char *file_text, int *offset) {
 
   token = is_varsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
     // could still be a statement etc.
     return token; 
 
   }
 
+  // number of vars to store in this lexical space
+  int num_m = 1;
+
   trim(file_text, offset);
 
   token = is_identsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return token; 
+    return ANALYZER_ERR_IDENT_NEEDED; 
 
   }
+
+  Token ident = get_last_token();
+
+  // use the bp offset from start of current activation record 
+  Symbol symbol = Symbol_new(var_ident, ident.lexeme, 0, gen_get_bp_offset());
+
+  gen_inc_bp_offset();
+
+  Symbol_insert(symbol);
 
   trim(file_text, offset);
 
@@ -841,7 +1057,7 @@ int is_vardec (char *file_text, int *offset) {
     // check if next token is comma
     token = is_commasym(file_text, offset); 
     
-    if (token == ANALYZER_NO_ERR) { 
+    if (token == ANALYZER_VALID) { 
 
       trim (file_text, offset);
 
@@ -851,12 +1067,22 @@ int is_vardec (char *file_text, int *offset) {
       trim(file_text, offset);
 
       // comma must be followed by an identifier
-      if (token != ANALYZER_NO_ERR) {
+      if (token != ANALYZER_VALID) {
 
         return token;
 
       }
 
+      // increase number of m to use in INC
+      num_m ++;
+
+      Token ident = get_last_token();
+
+      Symbol symbol = Symbol_new(var_ident, ident.lexeme, 0, gen_get_bp_offset());
+
+      gen_inc_bp_offset();
+
+      Symbol_insert(symbol);
 
     }
     // if there is no comma, we must find a semicolon
@@ -867,20 +1093,28 @@ int is_vardec (char *file_text, int *offset) {
       // check if next symbol is a semicolon
       token = is_semicolonsym(file_text, offset);
 
-      if (token != ANALYZER_NO_ERR) {
+      if (token != ANALYZER_VALID) {
 
-        return token;
+        return ANALYZER_ERR_NO_SEMICOLON;
+
+      }
+      else {
+
+        halt = 1;
 
       }
 
     }
 
   } while (!halt);
+  
+  // allocate m spaces for m variables
+  gen(VM_OP_INC, 0, 0, num_m);
 
   // trim just in case
   trim(file_text, offset);
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
@@ -894,7 +1128,7 @@ int is_identsym (char *file_text, int *offset) {
 
   next = *(file_text + local_offset);
 
-  int err = ANALYZER_NO_ERR;
+  int err = ANALYZER_VALID;
 
   if (!is_letter(next)) {
 
@@ -945,7 +1179,7 @@ int is_identsym (char *file_text, int *offset) {
   // identifier cannot be reserved.
   if (is_reserved_word(lexeme)) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_NO_ERR;
 
   }
 
@@ -954,7 +1188,7 @@ int is_identsym (char *file_text, int *offset) {
   // we stopped. reset the global offset
   *offset = local_offset;
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
@@ -966,7 +1200,7 @@ int is_procdec (char *file_text, int *offset) {
 
   next = (file_text + local_offset);
 
-  int status = ANALYZER_NO_ERR;
+  int status = ANALYZER_VALID;
 
   TokenType token;
 
@@ -978,7 +1212,7 @@ int is_procdec (char *file_text, int *offset) {
     // checks for "procedure"
     token = is_procsym(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR) {
+    if (token != ANALYZER_VALID) {
 
       break;
 
@@ -989,19 +1223,23 @@ int is_procdec (char *file_text, int *offset) {
     //expect identifier here
     token = is_identsym(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR) {
+    if (token != ANALYZER_VALID) {
 
       break;
 
     }
 
+    // insert identifier as a procedure into symbol table
+    Token procedure = get_last_token();
+
+    // create proc identifier symbol in symbol table
     trim(file_text, offset);
 
     //expect a semicolon here
     token = is_semicolonsym(file_text, offset);
 
 
-    if (token != ANALYZER_NO_ERR){
+    if (token != ANALYZER_VALID){
 
       break;
 
@@ -1009,10 +1247,19 @@ int is_procdec (char *file_text, int *offset) {
 
     trim(file_text, offset);
 
+    // gets program counter befor following block is created.
+    int proc_address = gen_get_pc();
+
+    // address holds address in code memory
+    Symbol symbol = Symbol_new(proc_ident, procedure.lexeme, 0, gen_get_pc());
+
+    Symbol_insert(symbol);
+
+
     // check for block
     token = is_block(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR){
+    if (token != ANALYZER_VALID){
 
       break;
 
@@ -1023,7 +1270,7 @@ int is_procdec (char *file_text, int *offset) {
     //expect another semicolon here
     token = is_semicolonsym(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR){
+    if (token != ANALYZER_VALID){
 
       break;
 
@@ -1040,14 +1287,14 @@ int is_procdec (char *file_text, int *offset) {
 
   token = is_statement(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR){
+  if (token != ANALYZER_VALID){
 
     // could still be a statement
     return token;
 
   }
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
@@ -1059,14 +1306,14 @@ int is_statement (char *file_text, int *offset) {
 
   next = (file_text + local_offset);
 
-  int status = ANALYZER_NO_ERR;
+  int status = ANALYZER_VALID;
 
   status = is_callstatement(file_text, offset);
 
   // call <identifier>
-  if (status == ANALYZER_NO_ERR) {
+  if (status == ANALYZER_VALID || status < ANALYZER_NO_ERR) {
 
-    return ANALYZER_NO_ERR;
+    return ANALYZER_VALID;
 
   }
   else {
@@ -1076,9 +1323,9 @@ int is_statement (char *file_text, int *offset) {
   }
 
   // begin <statement> {; <statement>} end
-  if (status == ANALYZER_NO_ERR) {
+  if (status == ANALYZER_VALID || status < ANALYZER_NO_ERR) {
 
-    return ANALYZER_NO_ERR;
+    return status;
 
   }
   else {
@@ -1086,8 +1333,9 @@ int is_statement (char *file_text, int *offset) {
     status = is_ifstatement(file_text, offset);
 
   }
+
   // if <condition> then <statement> [else <statement>]
-  if (status == ANALYZER_NO_ERR) {
+  if (status == ANALYZER_VALID || status < ANALYZER_NO_ERR) {
 
     return status;
 
@@ -1098,9 +1346,9 @@ int is_statement (char *file_text, int *offset) {
     status = is_whilestatement(file_text, offset);
 
   }
-  if (status == ANALYZER_NO_ERR) {
+  if (status == ANALYZER_VALID || status < ANALYZER_NO_ERR) {
 
-    return ANALYZER_NO_ERR;
+    return status;
 
   }
   else {
@@ -1109,18 +1357,18 @@ int is_statement (char *file_text, int *offset) {
 
   }
   // read <identifier>
-  if (status == ANALYZER_NO_ERR) {
+  if (status == ANALYZER_VALID || status < ANALYZER_NO_ERR) {
 
-    return ANALYZER_NO_ERR;
+    return status;
 
   }
   else {
     // write <identifier>
     status = is_writestatement(file_text, offset);
   }
-  if (status == ANALYZER_NO_ERR) {
+  if (status == ANALYZER_VALID || status < ANALYZER_NO_ERR) {
 
-    return ANALYZER_NO_ERR;
+    return status;
 
   }
 
@@ -1128,13 +1376,28 @@ int is_statement (char *file_text, int *offset) {
   // other statementexpressions listed above
   
   // <ident> := <expression>
-  TokenType token;
+  int token;
 
   token = is_identsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_NO_ERR;
+
+  }
+
+  Token ident = get_last_token();
+
+  Symbol symbol = find(ident.lexeme);
+
+  if (symbol.name == 0) {
+
+    return ANALYZER_ERR_UND_IDENT;
+
+  }
+  else if (symbol.type != var_ident) {
+
+    return ANALYZER_ERR_BAD_ASSIGN;
 
   }
 
@@ -1142,9 +1405,8 @@ int is_statement (char *file_text, int *offset) {
 
   token = is_becomessym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    printf("HERE WE ARE\n");
     
     return ANALYZER_ERR_NEEDS_BECOMES;
 
@@ -1152,13 +1414,29 @@ int is_statement (char *file_text, int *offset) {
 
   trim(file_text, offset);
 
-  if (is_expression(file_text, offset) != ANALYZER_NO_ERR) {
+  token = is_expression(file_text, offset);
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+  if (token != ANALYZER_VALID) {
+
+    return token;
 
   }
 
-  return ANALYZER_NO_ERR;
+  // expression value should be in the last used register (we hope!)
+  int result_reg = gen_get_reg_offset(); 
+
+  // get ident address.
+  int ident_address = symbol.addr;
+
+  // get ident lexical level
+  int sym_lex_level = symbol.level;
+  // take result in reg and store result in memory address. let
+  // the VM actually handle the base pointer
+  
+  // store value 
+  gen(VM_OP_STO, result_reg, sym_lex_level, ident_address);
+
+  return ANALYZER_VALID;
 
 }
 
@@ -1168,58 +1446,45 @@ int is_callstatement (char *file_text, int *offset) {
 
   token = is_callsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_NO_ERR;
 
   }
+
+  // increase the lexical level
+  gen_inc_lex_lev();
 
   trim(file_text, offset);
 
   token = is_identsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_NO_ERR;
 
   }
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
 int is_beginstatement (char *file_text, int *offset) {
 
-  TokenType token;
+  int token;
 
   token = is_beginsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_NO_ERR;
 
   }
 
   trim (file_text, offset);
 
-  // okay, so I read the assignment rubric and was tracing the grammar closely.
-  // based on the grammar and the code examples, the regular expression
-  // for the begin statement does not appear to be:
-  //
-  // begin <statement> (; <statement>)* end
-  //
-  // but rather:
-  //
-  // begin (<statement>;)+ end
-  //
-  // under the first regex, this would be valid:
-  // begin
-  // write x <- no semi-colon
-  // end
-  //
-  // in many examples the last statement of the begin statement
-  // is terminated with a semi-colon. The exception is 'while' statements,
-  // though im unsure how to proceed with that.
+  // increase lexical level now that we are in a new block
+  gen_inc_lex_lev();
 
   trim(file_text, offset);
 
@@ -1227,9 +1492,9 @@ int is_beginstatement (char *file_text, int *offset) {
 
   token = is_statement(file_text, offset);
 
-  if(token != ANALYZER_NO_ERR) {
+  if(token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return token;
 
   }
 
@@ -1239,15 +1504,17 @@ int is_beginstatement (char *file_text, int *offset) {
 
     token = is_semicolonsym(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR) {
+    if (token != ANALYZER_VALID || token < ANALYZER_NO_ERR) {
 
-      return token;
+      return ANALYZER_ERR_NO_SEMICOLON;
 
     }
 
     trim (file_text, offset);
 
-    if (is_statement(file_text, offset) == ANALYZER_NO_ERR) {
+    token = is_statement(file_text, offset);
+    
+    if (token == ANALYZER_VALID) {
 
       halt = 0;
 
@@ -1262,49 +1529,70 @@ int is_beginstatement (char *file_text, int *offset) {
 
   } while(!halt);
 
+  if (token < ANALYZER_NO_ERR) {
+
+    return token;
+
+  }
+
   trim(file_text, offset);
 
   token = is_endsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID || token < ANALYZER_NO_ERR) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_ERR_NO_END;
 
   }
 
-  return ANALYZER_NO_ERR;
+  gen_dec_lex_lev();
+
+  return ANALYZER_VALID;
 
 }
 
 int is_whilestatement (char *file_text, int *offset) {
 
-  TokenType token;
+  int token;
 
   token = is_whilesym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_NO_ERR;
 
   }
+
+  // grab the address of conditional for JMP at end of loop.
+  int check_addr = gen_get_pc();
 
   trim(file_text, offset);
 
   token = is_condition(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID || token < ANALYZER_NO_ERR) {
 
     return token;
 
   }
+
+  // get register for result of condition above
+  int condition_result_reg = gen_get_reg_offset();
+
+  // address of conditional jump. used to modify m at end of loop
+  int jpc_addr = gen_get_pc();
+  
+  // set conditional jump m to 0 for now. will set
+  // later when we are sure where the statement ends
+  gen(VM_OP_JPC, condition_result_reg, 0, 0);
 
   trim(file_text, offset);
 
   token = is_dosym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID || token < ANALYZER_NO_ERR) {
 
-    return token;
+    return ANALYZER_ERR_NO_DO;
 
   }
 
@@ -1312,27 +1600,37 @@ int is_whilestatement (char *file_text, int *offset) {
 
   token = is_statement(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID || token < ANALYZER_NO_ERR) {
 
     return token;
 
   }
 
+  // insert JMP to conditional check of loop
+  gen(VM_OP_JMP, 0, 0, check_addr);
+
+  // get address after statement in while loop.
+  int break_addr = gen_get_pc();
+  
+  // change JPC at top of while loop to go to instr. address after
+  // loop instruction
+  gen_alt_instr_m(jpc_addr, break_addr);
+
   trim(file_text, offset);
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
 int is_ifstatement (char *file_text, int *offset) {
 
-  TokenType token; 
+  int token; 
 
   token = is_ifsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return token;
+    return ANALYZER_NO_ERR;
 
   }
 
@@ -1340,31 +1638,49 @@ int is_ifstatement (char *file_text, int *offset) {
 
   token = is_condition(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
     return token;
 
   }
+
+  // get reg of conditional check result 
+  int cond_result_reg = gen_get_reg_offset();
 
   trim(file_text, offset);
 
   token = is_thensym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return token;
+    return ANALYZER_ERR_NO_THEN;
 
   }
+
+  // address of jump command
+  int jmp_addr = gen_get_pc();
+
+  // insert conditional. leave m at 0 to be change later
+  gen(VM_OP_JPC, cond_result_reg, 0, 0);
 
   trim(file_text, offset);
 
   token = is_statement(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
     return token;
 
   }
+
+  // address to jump to
+  int jumpto = gen_get_pc();
+
+  // get jpc command inserted earlier and change m
+  gen_alt_instr_m(jmp_addr, jumpto);
+
+  // get pc from gen to handle (gen_pc was was moved when
+  // generating code in statement above)
 
   trim(file_text, offset);
 
@@ -1373,13 +1689,13 @@ int is_ifstatement (char *file_text, int *offset) {
   token = is_elsesym(file_text, offset);
 
   // there is an else
-  if (token == ANALYZER_NO_ERR) {
+  if (token == ANALYZER_VALID) {
 
     trim(file_text, offset);
 
     token = is_statement(file_text, offset);
     // now look for additional statement
-    if (token == ANALYZER_NO_ERR) {
+    if (token == ANALYZER_VALID) {
 
       return token;
 
@@ -1387,17 +1703,16 @@ int is_ifstatement (char *file_text, int *offset) {
     else {
 
       // statement must follow else
-      return ANALYZER_ERR_INVALID_TOKEN;
+      return ANALYZER_NO_ERR;
 
     }
 
   }
-  else {
 
-    // else is not required
-    return ANALYZER_NO_ERR;
+  // else is not required
+  
 
-  }
+  return ANALYZER_VALID;
 
 }
 
@@ -1407,9 +1722,9 @@ int is_readstatement (char *file_text, int *offset) {
 
   token = is_readsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_NO_ERR;
 
   }
 
@@ -1417,15 +1732,35 @@ int is_readstatement (char *file_text, int *offset) {
 
   token = is_identsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_NO_ERR;
 
   }
 
+  Token identifier = get_last_token();
+
+  Symbol ident_sym = find(identifier.lexeme);
+
+  if (ident_sym.name == NULL) {
+
+    return ANALYZER_ERR_INVALID_READ;
+
+  }
+
+  gen_inc_reg_offset();
+
+  int read_reg = gen_get_reg_offset();
+
+  // generate read code
+  gen(VM_OP_SIO, read_reg, 0, 2);
+
+  // store read in value into variable 
+  gen(VM_OP_STO, read_reg, ident_sym.level, ident_sym.addr);
+
   trim(file_text, offset);
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
@@ -1435,9 +1770,9 @@ int is_writestatement (char *file_text, int *offset) {
 
   token = is_writesym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_NO_ERR;
 
   }
 
@@ -1445,15 +1780,35 @@ int is_writestatement (char *file_text, int *offset) {
 
   token = is_identsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_NO_ERR;
 
   }
 
+  Token identifier = get_last_token();
+
+  Symbol ident_sym = find(identifier.lexeme);
+
+  if (ident_sym.name == NULL) {
+
+    return ANALYZER_ERR_INVALID_WRITE; 
+
+  }
+
+  gen_inc_reg_offset();
+
+  // generate write code
+  int write_reg = gen_get_reg_offset();
+
+  // store variable in register to write out to screen 
+  gen(VM_OP_LOD, write_reg, ident_sym.level, ident_sym.addr);
+
+  gen(VM_OP_SIO, write_reg, 0, 1);
+
   trim(file_text, offset);
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
@@ -1466,15 +1821,37 @@ int is_condition (char *file_text, int *offset) {
   trim(file_text, offset);
 
   // check if odd symbol
-  if (token == ANALYZER_NO_ERR) {
+  if (token == ANALYZER_VALID) {
 
     trim(file_text, offset);
 
+    // if valid expression, the code will be generated as a side effect.
     token = is_expression(file_text, offset);
-    // now see if there is an expression
-    if (token == ANALYZER_NO_ERR) {
 
-      return ANALYZER_NO_ERR;
+    // now see if there is an expression
+    if (token == ANALYZER_VALID) {
+
+      // get register of expression result
+      int expression_result_reg = gen_get_reg_offset();
+
+      gen_inc_reg_offset();
+
+      int imm_two_reg = gen_get_reg_offset();
+
+      // load immediate value of 2 in next register
+      gen(VM_OP_LIT, imm_two_reg, 0, 2);
+
+      gen_inc_reg_offset();
+
+      int mod_result_reg = gen_get_reg_offset();
+
+      // take the mod of the expression result and an immediate value of 2
+      // if it is 0 (or even) the ODD check is deasserted 
+      gen(VM_OP_MOD, mod_result_reg, expression_result_reg, imm_two_reg);
+
+      // generate a MOD command and put result in next reg
+
+      return ANALYZER_VALID;
 
     }
 
@@ -1490,35 +1867,65 @@ int is_condition (char *file_text, int *offset) {
 
   token = is_expression(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
     return token;
 
   }
+
+  // get result from expression (should be in last register used)
+  int expr1_reg = gen_get_reg_offset();
 
   trim(file_text, offset);
 
   token = is_relsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
     return token;
 
   }
+
+  // get last token to see the kind of rel symbol
+  Token rel = get_last_token();
+
+  // there are 6 operations
+  int rel_ops[] = {
+    VM_OP_EQL, VM_OP_NEQ, VM_OP_LSS,
+    VM_OP_LEQ, VM_OP_GTR, VM_OP_GEQ
+  };
+
+  // eqsym, the enum value of 9, minus 9 = 0
+  // neqsym, the enum value of 10, minus 9 = 1... etc
+  int rel_op = rel_ops[rel.token_type - 9];
 
   trim(file_text, offset);
 
   token = is_expression(file_text, offset);
 
-  if ( token != ANALYZER_NO_ERR) {
+  if ( token != ANALYZER_VALID) {
 
     return token;
 
   }
 
+  // expression should be evaluated and placed into a register
+  int expr2_reg = gen_get_reg_offset(); 
+
+  // go to next reg for result
+  gen_inc_reg_offset();
+
+  int condition_result_reg = gen_get_reg_offset();
+
+  // generate EQL, NEQ, LSS, w/e was determined from the rel token
+  // take result from expression 1, expression 2 and put in a new register
+  gen(rel_op, condition_result_reg, expr1_reg, expr2_reg);
+
+  // don't increment reg, because we will need result for any jumps 
+
   trim(file_text, offset);
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
@@ -1526,31 +1933,33 @@ int is_relsym (char *file_text, int *offset) {
 
   TokenType token;
 
-  token = is_lessym(file_text, offset);
+  // trying <> first so it is not confused with <
+  token = is_neqsym(file_text, offset);
 
-  if (token == ANALYZER_NO_ERR) {
+  if (token == ANALYZER_VALID) {
 
-    return ANALYZER_NO_ERR;
+    return ANALYZER_VALID;
 
   }
   else {
 
+    // must try <= before < to prevent a false, preliminary detection
     token = is_leqsym(file_text, offset);
 
   }
-  if (token == ANALYZER_NO_ERR) {
+  if (token == ANALYZER_VALID) {
 
-    return ANALYZER_NO_ERR;
+    return ANALYZER_VALID;
 
   }
   else {
 
-    token = is_gtrsym(file_text, offset);
+    token = is_lessym(file_text, offset);
 
   }
-  if (token == ANALYZER_NO_ERR) {
+  if (token == ANALYZER_VALID) {
 
-    return ANALYZER_NO_ERR;
+    return ANALYZER_VALID;
 
   }
   else {
@@ -1558,31 +1967,33 @@ int is_relsym (char *file_text, int *offset) {
     token = is_geqsym(file_text, offset);
 
   }
-  if (token == ANALYZER_NO_ERR) {
+  if (token == ANALYZER_VALID) {
 
-    return ANALYZER_NO_ERR;
+    return ANALYZER_VALID;
 
   }
+  else {
+
+    token = is_gtrsym(file_text, offset);
+
+  }
+  if (token == ANALYZER_VALID) {
+
+    return ANALYZER_VALID;
+
+  }
+
   else {
 
     token = is_eqsym(file_text, offset);
 
   }
-  if (token  == ANALYZER_NO_ERR) {
+  if (token  == ANALYZER_VALID) {
 
-    return ANALYZER_NO_ERR;
-
-  }
-  else {
-
-    token = is_neqsym(file_text, offset);
+    return ANALYZER_VALID;
 
   }
-  if (token == ANALYZER_NO_ERR) {
-
-    return ANALYZER_NO_ERR;
-
-  }
+  
 
   return ANALYZER_ERR_NO_REL;
 
@@ -1594,19 +2005,30 @@ int is_expression (char *file_text, int *offset) {
 
   token = is_plussym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  int is_plus_or_minus;
+
+  if (token != ANALYZER_VALID) {
 
     token = is_minussym(file_text, offset);
 
-    // ^ important to remember the is_[token]
-    // functions have side effect of: 
-    //   * moving offset
-    //     pointer IFF the correct token is found,
-    //   * inserting found token into table 
-    //
-    // that said, no 'check' is really necessary
-    // here because the '-' was optional anyways
-    //
+    if (token == ANALYZER_VALID) {
+
+      // negative 1 indicages -
+      is_plus_or_minus = -1;
+
+    }
+    else {
+
+      // no unary operator
+      is_plus_or_minus = 0;
+
+    }
+
+  }
+  else {
+
+    // is positive
+    is_plus_or_minus = 1;
 
   }
 
@@ -1616,11 +2038,20 @@ int is_expression (char *file_text, int *offset) {
   token = is_term(file_text, offset);
 
   // next expression must be a term
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return token;
+    return ANALYZER_ERR_EXPRESSION_START;
 
   }  
+
+  // if negative negate the term
+  if (is_plus_or_minus == -1) {
+
+    // result term should be in last register used
+    gen(VM_OP_NEG, gen_get_reg_offset(), gen_get_last_reg(), 0 );
+
+  }
+
 
   trim(file_text, offset);
 
@@ -1628,24 +2059,34 @@ int is_expression (char *file_text, int *offset) {
 
   do {
 
+    // -1 == sub, 0 == invalid, 1 == add
+    int add_or_sub = 0; 
+
+    int fst_term_reg = gen_get_reg_offset();
+
     token = is_plussym(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR) {
+    if (token != ANALYZER_VALID) {
 
       token = is_minussym(file_text, offset);
 
       // we are looking for (+ | -) after last term.
       // none found, so we break
-      if (token != ANALYZER_NO_ERR) {
+      if (token != ANALYZER_VALID) {
 
         break;
+
+      }
+      else {
+
+        add_or_sub = -1;
 
       }
 
     }
     else {
 
-      break;
+      add_or_sub = 1;
 
     }
 
@@ -1654,11 +2095,30 @@ int is_expression (char *file_text, int *offset) {
 
     token = is_term(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR) {
+    if (token != ANALYZER_VALID) {
 
       // since the last symbol was (+ | -), a term is
       // manditory in the grammar
-      return token; 
+      return ANALYZER_ERR_TERM_START; 
+
+    }
+
+    int snd_term_reg = gen_get_reg_offset();
+
+    // increase reg for new result
+    
+    gen_inc_reg_offset();
+
+    int result_reg = gen_get_reg_offset();
+
+    if (add_or_sub == 1) {
+
+      gen(VM_OP_ADD, result_reg, fst_term_reg, snd_term_reg);
+
+    }
+    else if(add_or_sub == -1) {
+
+      gen(VM_OP_SUB, result_reg, fst_term_reg, snd_term_reg);
 
     }
 
@@ -1668,7 +2128,7 @@ int is_expression (char *file_text, int *offset) {
   } while(!halt);
 
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
   
 }
 
@@ -1678,7 +2138,7 @@ int is_term (char *file_text, int *offset) {
 
   token = is_factor(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
     return token;
 
@@ -1694,26 +2154,46 @@ int is_term (char *file_text, int *offset) {
 
     token = is_multsym(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR) {
+    // 0 == neither, 1 == mult, -1 == div
+    int is_mult_or_div = 0;
+
+    if (token != ANALYZER_VALID) {
+
+      trim(file_text, offset);
 
       token = is_slashsym(file_text, offset);
 
       trim(file_text, offset);
 
-      if (token != ANALYZER_NO_ERR) {
+      if (token != ANALYZER_VALID) {
+
+        is_mult_or_div = 0;
 
         // {(* | / ) <factor>} is optional
-        return ANALYZER_NO_ERR;
+        return ANALYZER_VALID;
+
+      }
+      else {
+
+        is_mult_or_div = -1;
 
       }
 
     }
+    else {
+
+      is_mult_or_div = 1;
+
+    }
+
+    // get reg of first factor
+    int fst_factor_reg = gen_get_reg_offset();
 
     trim(file_text, offset);
 
     token = is_factor(file_text, offset);
 
-    if (token != ANALYZER_NO_ERR) {
+    if (token != ANALYZER_VALID) {
 
       // once we've scanned a mult or slash, a
       // factor is required
@@ -1721,42 +2201,92 @@ int is_term (char *file_text, int *offset) {
 
     }
 
+    // get reg of second factor
+    int snd_factor_reg = gen_get_reg_offset();
+
+    // store result in new reg
+    gen_inc_reg_offset();
+
+    // operation fst and snd factors
+    int op;
+
+    if (is_mult_or_div == 1) {
+
+      op = VM_OP_MUL;
+
+    }
+    else {
+
+      op = VM_OP_DIV;
+
+    }
+
+    gen(op, gen_get_reg_offset(), fst_factor_reg, snd_factor_reg);
+
+    // will continue to loop, increasing the register number round robin style
+    // (which should work in sequence)
+
     halt = 0;
 
   } while(!halt);
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
+// because factors are always used in assignment,
+// here is where we are using our register allocation
+// strategy.
 int is_factor (char *file_text, int *offset) {
 
   TokenType token;
 
   token = is_numbersym(file_text, offset);
 
-  if (token == ANALYZER_NO_ERR) {
+  if (token == ANALYZER_VALID) {
+
+    Token number = get_last_token(); 
+
+    int value = atoi(number.lexeme);
+
+    // go to next reg for round robin
+    gen_inc_reg_offset();
+
+    // use LIT to put value in a register
+    gen(VM_OP_LIT, gen_get_reg_offset(), 0, value);
 
     // a number is a factor 
-    return ANALYZER_NO_ERR;
+    return ANALYZER_VALID;
 
   }
 
   token = is_identsym(file_text, offset);
 
-  if (token == ANALYZER_NO_ERR) {
+  if (token == ANALYZER_VALID) {
+
+    // load token
+    Token identifier = get_last_token();
+
+    Symbol ident_sym = find(identifier.lexeme);
+
+    int ident_address   = ident_sym.addr;
+    int ident_lex_scope = ident_sym.level;
+
+    gen_inc_reg_offset();
+
+    gen(VM_OP_LOD, gen_get_reg_offset(), ident_lex_scope, ident_address);
 
     // an identifier is a factor 
-    return ANALYZER_NO_ERR;
+    return ANALYZER_VALID;
 
   }
 
   // check for left parentheses
   token = is_lparentsym(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_NO_ERR;
+    return ANALYZER_ERR_INVALID_TOKEN;
 
   }
 
@@ -1764,24 +2294,27 @@ int is_factor (char *file_text, int *offset) {
 
   // check for expression
   token = is_expression(file_text, offset);
-  if (token != ANALYZER_NO_ERR) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+  if (token != ANALYZER_VALID) {
+
+    return ANALYZER_NO_ERR;
 
   }
+
+  trim(file_text, offset);
 
   // check for right parentheses
   token = is_rparentsym(file_text, offset);
 
   trim(file_text, offset);
 
-  if (token != ANALYZER_NO_ERR) {
+  if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_INVALID_TOKEN;
+    return ANALYZER_ERR_NO_RIGHT_PAREN;
 
   }
 
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
@@ -1866,9 +2399,8 @@ int is_numbersym (char *file_text, int *offset) {
 
   *offset = local_offset;
 
-
   // it's a number (e.g. "110082")
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
@@ -2104,9 +2636,8 @@ int is_terminal (char *file_text, int *offset, char token[], int token_type) {
 
     if (next == '\0' || next != token[i]) {
 
-      // return error, parser has ability to 'catch' the
-      // error
-      return ANALYZER_ERR_INVALID_TOKEN;
+      // not valid, but no error yet
+      return ANALYZER_NO_ERR;
 
     }
 
@@ -2119,9 +2650,7 @@ int is_terminal (char *file_text, int *offset, char token[], int token_type) {
 
   *offset = local_offset;
 
-  printf("proof %d\n", token_type);
-
-  return ANALYZER_NO_ERR;
+  return ANALYZER_VALID;
 
 }
 
@@ -2143,8 +2672,6 @@ int is_digit (char c) {
 void print_status (int status) {
 
   char *status_str = analyzer_statuses[status];
-
-  printf("STATUS: %s\n", status_str);
 
 }
 

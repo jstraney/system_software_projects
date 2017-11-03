@@ -1,12 +1,12 @@
-const y = 200;
-var x, w;
-if x < w then x = w
-read x
+var x, y;
 begin
-  x:=4;
-  read w;
-  if w < 35 then
-    write w
-  else
-    write x;
+  x := 10;
+  read y;
+  while x < y do 
+    x := x * 2;
+  write x;
 end.
+/*
+program will double x until it is equal
+to or greater than y.
+*/

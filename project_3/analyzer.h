@@ -20,6 +20,9 @@
 #define BOOL
 #endif
 
+// max symbol table size. adjust as needed
+#define MAX_SYMBOL_TABLE_SIZE 2000
+
 // token types. 
 typedef enum { 
   nulsym = 1, identsym, numbersym, plussym, minussym,
@@ -157,7 +160,37 @@ int analyzer_event_loop(FILE *file);
 
 int analyzer_entry(char *file_name);
 
+int hash(char *str);
+
+typedef enum {
+  var_ident = 1, proc_ident, const_ident
+} SymbolType;
+
+typedef struct {
+  SymbolType   type;
+  char         *name;
+  int          val;
+  int          level;
+  int          addr;
+} Symbol;
+
 Token * get_token_table();
+
+Symbol symbol_table[MAX_SYMBOL_TABLE_SIZE];
+
+int Symbol_insert(Symbol symbol);
+
+int Symbol_remove(Symbol symbol);
+
+Symbol find(char *ident);
+
+int symboltype ();
+
+int symbollev ();
+
+int symboladdress();
+
+void print_symbol (Symbol symbol);
 
 //// Event Loop ////
 // provides a list of options for user.
