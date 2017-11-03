@@ -1,2 +1,3 @@
+/*ERR NO SEMICOLON*/
 var x
-x := 12;
+

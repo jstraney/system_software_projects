@@ -1,3 +1,4 @@
-/*ERR no identifier*/
+/* ERR EXPECTED IDENT */
 var 12;
 .
+

@@ -1,4 +1,5 @@
 var x;
-/* error. not becomes := */
-x = 12;
+/* ERR EXPECTS BECOMES */
+x = 12
 .
+

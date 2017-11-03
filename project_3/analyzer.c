@@ -219,10 +219,10 @@ Symbol find(char *ident) {
 
 void print_symbol(Symbol symbol) {
 
-  int type    = symbol.type;
+  int    type = symbol.type;
   char * name = symbol.name;
-  int val     = symbol.val;
-  int level   = symbol.level;
+  int     val = symbol.val;
+  int   level = symbol.level;
   int address = symbol.addr;
 
   printf("type : %d  name: %s  value: %d level: %d addres: %d\n", type, name, val, level, address);
@@ -759,6 +759,9 @@ int is_program (FILE *fp) {
 
   int status = ANALYZER_VALID;
 
+  // do an initial trim for any proceeding whitespace or comments
+  trim(file_text, offset);
+
   while(status == ANALYZER_VALID) { 
     
     // must have a block
@@ -1089,7 +1092,6 @@ int is_vardec (char *file_text, int *offset) {
     else {
 
       // trim(file_text, offset);
-
       // check if next symbol is a semicolon
       token = is_semicolonsym(file_text, offset);
 
@@ -2040,7 +2042,7 @@ int is_expression (char *file_text, int *offset) {
   // next expression must be a term
   if (token != ANALYZER_VALID) {
 
-    return ANALYZER_ERR_EXPRESSION_START;
+    return token;
 
   }  
 
@@ -2099,7 +2101,7 @@ int is_expression (char *file_text, int *offset) {
 
       // since the last symbol was (+ | -), a term is
       // manditory in the grammar
-      return ANALYZER_ERR_TERM_START; 
+      return token; 
 
     }
 
@@ -2140,7 +2142,7 @@ int is_term (char *file_text, int *offset) {
 
   if (token != ANALYZER_VALID) {
 
-    return token;
+    return ANALYZER_ERR_TERM_START;
 
   }
 

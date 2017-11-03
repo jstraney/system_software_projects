@@ -1,3 +1,4 @@
 var x;
-x := (12 + 12;
-.
+/* ERR NO RIGHT PAREN */
+x := (12 
+

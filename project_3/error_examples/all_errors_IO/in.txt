@@ -1,0 +1,16 @@
+././const_expects_num.p
+././expected_becomes.p
+././expected_comma.p
+././expected_ident.p
+././expected_right_paren.p
+././expected_semicolon.p
+././expects_do.p
+././expects_equals.p
+././expects_then.p
+././expression_start.p
+././invalid_assign.p
+././no_end.p
+././no_period.p
+././no_rel.p
+././term_start.p
+././und_ident.p

@@ -1,3 +1,4 @@
 const z = 12;
-/* err bad assignment*/
-z := 13;
+/* CANNOT ASSIGN CONSTANT */
+z := 13
+

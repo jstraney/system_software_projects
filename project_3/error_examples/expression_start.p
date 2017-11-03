@@ -1,4 +1,4 @@
 var x;
+/* INVALID EXPRESSION */
+x := ^^^^
 
-/* not a valid expression */
-x := ^^^^;

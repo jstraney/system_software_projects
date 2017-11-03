@@ -1,0 +1,48 @@
+testing ./const_expects_num.p
+LEXER/PARSER STATUS:number required after const assignment
+
+testing ./expected_becomes.p
+LEXER/PARSER STATUS:expected := in var assignment
+
+testing ./expected_comma.p
+LEXER/PARSER STATUS:semicolon expected
+
+testing ./expected_ident.p
+LEXER/PARSER STATUS:identifier expected
+
+testing ./expected_right_paren.p
+LEXER/PARSER STATUS:invalid start of term
+
+testing ./expected_semicolon.p
+LEXER/PARSER STATUS:semicolon expected
+
+testing ./expects_do.p
+LEXER/PARSER STATUS:expected do
+
+testing ./expects_equals.p
+LEXER/PARSER STATUS:constant expects = 
+
+testing ./expects_then.p
+LEXER/PARSER STATUS:expected then
+
+testing ./expression_start.p
+LEXER/PARSER STATUS:invalid start of term
+
+testing ./invalid_assign.p
+LEXER/PARSER STATUS:invalid assignment. must assign to var only (const and proc assignment forbidden)
+
+testing ./no_end.p
+LEXER/PARSER STATUS:end expected after begin statement
+
+testing ./no_period.p
+LEXER/PARSER STATUS:period expected
+
+testing ./no_rel.p
+LEXER/PARSER STATUS:expected relational operator (< > <= >= = or <>)
+
+testing ./term_start.p
+LEXER/PARSER STATUS:invalid start of term
+
+testing ./und_ident.p
+LEXER/PARSER STATUS:undeclared Identifier
+
