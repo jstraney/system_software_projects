@@ -365,7 +365,7 @@ Assembly Output
 GEN STATUS: finished writing to assembly.code
 Virtual Machine Trace:
 ins  op   r   l   m      pc  bp  sp   stack values
-  0 inc   0   0   5       1   1   5   0  0  0  0  0 |  0 
+  0 inc   0   0   5       1   1   5   0  0  0  0  0  0 
   1 jmp   0   0  38      38   1   5   0  0  0  0  0  0 
  38 lit   0   0   1      39   1   5   0  0  0  0  0  0 
  39 sto   0   0   0      40   1   5   0  1  0  0  0  0 
@@ -422,6 +422,7 @@ ins  op   r   l   m      pc  bp  sp   stack values
  29 rtn   0   0   0      37   6  13   0  9  2  2  4  6 |  0  1  1 55  0  0  7  0 
  37 rtn   0   0   0      55   1   5   0  9  2  2  4  6 
  55 sio   0   0   3      55   1   5   0  9  2  2  4  6 
+VM STATUS: VM has finished
 Running test ./program.p
 LEXER/PARSER STATUS:scanning and parsing is finished
 

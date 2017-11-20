@@ -1,27 +1,23 @@
-/* EXAMPLE 4 FROM RUBRIC : NESTED PROCEDURES */
-var x, y, z, v, w;
+const foo = 200;
+var x, z;
 procedure a;
-  var x, y, u, v;
+  var x;
   procedure b;
-    var y, z, v;
+    var x;
     procedure c;
-      var y, z;
+      var x;
       begin
-        z := 1; 
-        x := y + z + w
+        x := 20;
+        write x
       end;
     begin
-      y := x + u + w;
-      call c
+      call c 
     end;
   begin
-    z := 2;
-    u := z + w;
-    call b
+    call b 
   end;
+
 begin
-  x:=1; y:=2; z:=3; v:=4; w:=5;
-  x:= v + w;
-  write z;
+  x := 5;
   call a
 end.

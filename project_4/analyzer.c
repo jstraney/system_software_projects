@@ -206,7 +206,7 @@ Symbol find(char *ident) {
 
   int key = hash(ident);
 
-  Symbol symbol;
+  Symbol symbol = {0, NULL, 0, 0, 0};
 
   // start at the current lexigraphical level and stop
   // at the first result found

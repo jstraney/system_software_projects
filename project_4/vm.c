@@ -682,7 +682,7 @@ int execute_instruction (Instruction instruction) {
 
   // load from offset m, l legigraphical levels down
   else if (op == VM_OP_LOD) {
-    
+
     reg[r] = stack[get_base(l, base_pointer) + m];
 
   }
